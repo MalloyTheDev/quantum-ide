@@ -1,21 +1,27 @@
 /**
  * Quantum Simulator Engine
- * 
+ *
  * From-scratch state vector simulator. No third-party quantum libraries.
- * 
+ *
  * State representation:
  *   Array of 2^n complex amplitudes, where n = number of qubits.
  *   Each amplitude is a [real, imag] tuple.
- *   Uses little-endian qubit ordering: qubit 0 = least significant bit.
- * 
+ *
+ *   QUBIT ORDERING — LITTLE-ENDIAN:
+ *   Qubit 0 is the LEAST significant bit of the basis state index.
+ *   So basis state |index⟩ has qubit k = (index >> k) & 1.
+ *   Example (2 qubits): state[0]=|00⟩, state[1]=|10⟩, state[2]=|01⟩, state[3]=|11⟩
+ *   where notation is |q1 q0⟩ (qubit 1 on the left, qubit 0 on the right).
+ *   This matches Qiskit's convention.
+ *
  * Gate application:
- *   Instead of constructing full 2^n × 2^n unitary matrices via tensor
+ *   Instead of constructing full 2^n x 2^n unitary matrices via tensor
  *   products, we directly iterate over amplitude pairs that differ only
  *   in the target qubit's bit position. This is O(2^n) per gate instead
  *   of O(2^(2n)) for full matrix multiplication.
- * 
+ *
  * Measurement:
- *   Born rule — probability of outcome is sum of |amplitude|² for all
+ *   Born rule — probability of outcome is sum of |amplitude|^2 for all
  *   basis states consistent with that outcome. State collapses and
  *   renormalizes after measurement.
  */
@@ -36,7 +42,6 @@ import {
   phaseFlipChannel,
   measureDM,
   getBlochVectorDM,
-  getDiagonalDM,
 } from './densityMatrix.js';
 
 // State Initialization
@@ -62,16 +67,16 @@ export function cloneState(state) {
 
 /**
  * Apply a 2x2 unitary gate to a single qubit in the state vector.
- * 
+ *
  * For each pair of amplitudes (|...0_q...⟩, |...1_q...⟩) that differ
  * only in bit position q, we apply:
- * 
+ *
  *   |new_0⟩ = gate[0][0] * |old_0⟩ + gate[0][1] * |old_1⟩
  *   |new_1⟩ = gate[1][0] * |old_0⟩ + gate[1][1] * |old_1⟩
- * 
+ *
  * @param {Array} state - State vector (array of [re, im] tuples)
  * @param {Array} gate  - 2x2 gate matrix
- * @param {number} qubit - Target qubit index
+ * @param {number} qubit - Target qubit index (little-endian: 0 = LSB)
  * @param {number} nQubits - Total number of qubits
  * @returns {Array} New state vector
  */
@@ -100,7 +105,7 @@ export function applySingleQubitGate(state, gate, qubit, nQubits) {
 
 /**
  * Apply CNOT (Controlled-X) gate.
- * 
+ *
  * If control qubit is |1⟩, flip target qubit.
  * Implementation: for each basis state where control=1 and target=0,
  * swap its amplitude with the state where target=1.
@@ -123,7 +128,7 @@ export function applyCNOT(state, control, target, nQubits) {
 
 /**
  * Apply SWAP gate using three CNOT decomposition.
- * SWAP = CNOT(a,b) · CNOT(b,a) · CNOT(a,b)
+ * SWAP = CNOT(a,b) . CNOT(b,a) . CNOT(a,b)
  */
 export function applySWAP(state, qubit1, qubit2, nQubits) {
   let s = applyCNOT(state, qubit1, qubit2, nQubits);
@@ -198,12 +203,12 @@ export function applyCSWAP(state, control, t1, t2, nQubits) {
 
 /**
  * Measure a single qubit. Collapses the state according to Born rule.
- * 
- * 1. Compute probability of measuring |0⟩: sum |α_j|² for all j where bit q = 0
+ *
+ * 1. Compute probability of measuring |0⟩: sum |alpha_j|^2 for all j where bit q = 0
  * 2. Sample outcome from Bernoulli(p0)
  * 3. Zero out amplitudes inconsistent with outcome
  * 4. Renormalize remaining amplitudes
- * 
+ *
  * @returns {{ state: Array, outcome: number }}
  */
 export function measureQubit(state, qubit, nQubits) {
@@ -232,7 +237,10 @@ export function measureQubit(state, qubit, nQubits) {
 }
 
 /**
- * Measure all qubits. Returns array of outcomes.
+ * Measure all qubits sequentially (qubit 0 first). Returns array of outcomes.
+ *
+ * Qubit ordering is little-endian: qubit 0 = LSB of the basis state index.
+ * The returned outcomes array is indexed [q0, q1, ..., q_{n-1}].
  */
 export function measureAll(state, nQubits) {
   let s = cloneState(state);
@@ -379,18 +387,20 @@ export function executeProgram(instructions, nQubits, customGates = {}) {
 // Multi-Shot Execution
 
 /**
- * Run a circuit `shots` times from |0⟩ and collect measurement outcome frequencies.
+ * Run a circuit `shots` times from |0> and collect measurement outcome frequencies.
  *
  * Each run is fully independent (fresh state vector). If the circuit contains
  * explicit `measure` or `measure all` instructions the outcomes of those
- * measurements are used to build the bitstring; otherwise the final state
- * is sampled with a full computational-basis measurement.
+ * measurements are used; qubits that were not explicitly measured are sampled
+ * from the post-circuit state so every bitstring is always nQubits wide.
+ *
+ * Bit ordering is little-endian: position 0 in the bitstring = qubit 0 (LSB).
  *
  * @param {Array}  instructions - Parsed instruction list (from parser.js)
  * @param {number} nQubits      - Number of qubits
  * @param {number} shots        - Number of independent runs
  * @param {Object} customGates  - Custom gate definitions from parser
- * @returns {Object} Frequency map: { "00": 512, "11": 488, ... }
+ * @returns {Object} Frequency map: { "00": 512, "11": 488, ... } (always nQubits wide)
  */
 export function runMultiShot(instructions, nQubits, shots, customGates = {}) {
   const counts = {};
@@ -404,13 +414,22 @@ export function runMultiShot(instructions, nQubits, shots, customGates = {}) {
       const { outcomes } = measureAll(result.state, nQubits);
       bitstring = outcomes.map(m => m.outcome).join('');
     } else {
-      // Use explicit measurement outcomes: one entry per qubit (last wins if re-measured)
+      // Collect the last measured outcome per qubit
       const lastMeasured = {};
       for (const m of result.measurements) {
         lastMeasured[m.qubit] = m.outcome;
       }
-      const qubits = Object.keys(lastMeasured).map(Number).sort((a, b) => a - b);
-      bitstring = qubits.map(q => lastMeasured[q]).join('');
+      // Sample any qubits not explicitly measured from the post-circuit state
+      // so the histogram always shows full nQubits-wide bitstrings
+      let finalState = result.state;
+      for (let q = 0; q < nQubits; q++) {
+        if (lastMeasured[q] === undefined) {
+          const r = measureQubit(finalState, q, nQubits);
+          lastMeasured[q] = r.outcome;
+          finalState = r.state;
+        }
+      }
+      bitstring = Array.from({ length: nQubits }, (_, q) => lastMeasured[q]).join('');
     }
 
     counts[bitstring] = (counts[bitstring] || 0) + 1;
@@ -457,13 +476,15 @@ export function stateEntropy(state) {
 /**
  * Compute the Bloch vector for each qubit by partial trace.
  *
- * For qubit k, the reduced 2×2 density matrix is:
- *   ρ₀₀ = Σ_{i: bit_k=0} |α_i|²
- *   ρ₁₁ = Σ_{i: bit_k=1} |α_i|²
- *   ρ₀₁ = Σ_{i: bit_k=0} conj(α_i) · α_{i|(1<<k)}
+ * For qubit k, the reduced 2x2 density matrix is:
+ *   rho_00 = sum_{i: bit_k=0} |alpha_i|^2
+ *   rho_11 = sum_{i: bit_k=1} |alpha_i|^2
+ *   rho_01 = sum_{i: bit_k=0} conj(alpha_i) . alpha_{i|(1<<k)}
  *
  * Bloch vector components:
- *   x = 2·Re(ρ₀₁),  y = 2·Im(ρ₀₁),  z = ρ₀₀ − ρ₁₁
+ *   x = 2.Re(rho_01),  y = 2.Im(rho_01),  z = rho_00 - rho_11
+ *
+ * Qubit ordering is little-endian: qubit 0 = LSB of basis state index.
  *
  * @param {Array}  stateVector - Array of [re, im] amplitudes (length 2^nQubits)
  * @param {number} nQubits     - Number of qubits
@@ -481,16 +502,16 @@ export function getBlochVectors(stateVector, nQubits) {
 
     for (let i = 0; i < size; i++) {
       if ((i >> k) & 1) {
-        // bit k = 1 → contributes to ρ₁₁
+        // bit k = 1 -> contributes to rho_11
         const [ar, ai] = stateVector[i];
         rho11 += ar * ar + ai * ai;
       } else {
-        // bit k = 0 → contributes to ρ₀₀ and ρ₀₁
+        // bit k = 0 -> contributes to rho_00 and rho_01
         const j = i | (1 << k);
         const [ar, ai] = stateVector[i];
         const [br, bi] = stateVector[j];
         rho00 += ar * ar + ai * ai;
-        // conj(α_i) · α_j = (ar − ai·i)(br + bi·i) = (ar·br + ai·bi) + i·(ar·bi − ai·br)
+        // conj(alpha_i) . alpha_j = (ar - ai.i)(br + bi.i) = (ar.br + ai.bi) + i.(ar.bi - ai.br)
         re01 += ar * br + ai * bi;
         im01 += ar * bi - ai * br;
       }
@@ -513,6 +534,10 @@ export function getBlochVectors(stateVector, nQubits) {
  * Execute a program using density matrix formalism with a noise channel
  * applied after every gate instruction.
  *
+ * Memory note: the density matrix is 2^n x 2^n complex values. At n=12
+ * this is ~256 MB; n=10 is ~16 MB. Use statevector simulation (executeProgram)
+ * for large noiseless circuits.
+ *
  * @param {Array}  instructions - Parsed instruction list
  * @param {number} nQubits      - Number of qubits
  * @param {Object} noiseConfig  - { model: 'depolarizing'|'amplitude_damping'|'phase_flip', strength: number }
@@ -523,7 +548,6 @@ export function executeNoisyProgram(instructions, nQubits, noiseConfig = {}, cus
   const { model = 'depolarizing', strength = 0.01 } = noiseConfig;
   const measurements = [];
 
-  // Build the Kraus operators for the chosen noise model
   function getKraus() {
     switch (model) {
       case 'amplitude_damping': return amplitudeDampingChannel(strength);
@@ -533,7 +557,6 @@ export function executeNoisyProgram(instructions, nQubits, noiseConfig = {}, cus
     }
   }
 
-  // Apply noise to every qubit after a gate
   function applyNoise(rho) {
     const kraus = getKraus();
     let r = rho;
@@ -543,9 +566,12 @@ export function executeNoisyProgram(instructions, nQubits, noiseConfig = {}, cus
     return r;
   }
 
-  let rho = createDensityMatrix(nQubits);
+  // Process one instruction against an existing density matrix.
+  // Returns { rho, meas } where meas is the array of new measurement outcomes.
+  // Recursive for custom gates, passing the full registry so nested gates work.
+  function applyInst(rho, inst) {
+    const meas = [];
 
-  for (const inst of instructions) {
     switch (inst.type) {
       case 'qubits':
         break;
@@ -574,12 +600,20 @@ export function executeNoisyProgram(instructions, nQubits, noiseConfig = {}, cus
         rho = applyNoise(rho);
         break;
 
-      case 'cz': {
-        const Z = FIXED_GATES['z'];
-        rho = applyControlledGate_DM(rho, Z, inst.qubits[0], inst.qubits[1], nQubits);
+      case 'cz':
+        rho = applyControlledGate_DM(rho, FIXED_GATES['z'], inst.qubits[0], inst.qubits[1], nQubits);
         rho = applyNoise(rho);
         break;
-      }
+
+      case 'cs':
+        rho = applyControlledGate_DM(rho, FIXED_GATES['s'], inst.qubits[0], inst.qubits[1], nQubits);
+        rho = applyNoise(rho);
+        break;
+
+      case 'ct':
+        rho = applyControlledGate_DM(rho, FIXED_GATES['t'], inst.qubits[0], inst.qubits[1], nQubits);
+        rho = applyNoise(rho);
+        break;
 
       case 'swap':
         rho = applySWAP_DM(rho, inst.qubits[0], inst.qubits[1], nQubits);
@@ -601,7 +635,7 @@ export function executeNoisyProgram(instructions, nQubits, noiseConfig = {}, cus
         const { prob0, collapsed0, collapsed1 } = measureDM(rho, q, nQubits);
         const outcome = Math.random() < prob0 ? 0 : 1;
         rho = outcome === 0 ? collapsed0 : collapsed1;
-        measurements.push({ qubit: q, outcome });
+        meas.push({ qubit: q, outcome });
         break;
       }
 
@@ -610,7 +644,7 @@ export function executeNoisyProgram(instructions, nQubits, noiseConfig = {}, cus
           const { prob0, collapsed0, collapsed1 } = measureDM(rho, q, nQubits);
           const outcome = Math.random() < prob0 ? 0 : 1;
           rho = outcome === 0 ? collapsed0 : collapsed1;
-          measurements.push({ qubit: q, outcome });
+          meas.push({ qubit: q, outcome });
         }
         break;
 
@@ -625,9 +659,10 @@ export function executeNoisyProgram(instructions, nQubits, noiseConfig = {}, cus
               ...bodyInst,
               qubits: bodyInst.qubits?.map(localIdx => inst.qubits[localIdx]),
             };
-            // Inline recursion for custom gates (single level only)
-            const subResult = executeNoisyProgram([remapped], nQubits, noiseConfig, {});
-            rho = subResult.densityMatrix;
+            // Recurse with the full customGates registry so nested gates work
+            const r = applyInst(rho, remapped);
+            rho = r.rho;
+            meas.push(...r.meas);
           }
         }
         break;
@@ -636,6 +671,16 @@ export function executeNoisyProgram(instructions, nQubits, noiseConfig = {}, cus
       default:
         break;
     }
+
+    return { rho, meas };
+  }
+
+  let rho = createDensityMatrix(nQubits);
+
+  for (const inst of instructions) {
+    const r = applyInst(rho, inst);
+    rho = r.rho;
+    measurements.push(...r.meas);
   }
 
   // Compute Bloch vectors from the final density matrix
