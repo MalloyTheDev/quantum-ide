@@ -6,7 +6,10 @@
  *
  * ─── Syntax ───────────────────────────────────────────
  *
- *   qubits N          Allocate N qubits (1-8). Auto-inferred if omitted.
+ *   qubits N          Allocate N qubits (1-16). Auto-inferred if omitted.
+ *                     Memory note: statevector uses 2^n complex values (~1 MB at n=16).
+ *                     Density matrix (noisy mode) uses 2^n x 2^n values (~256 MB at n=12);
+ *                     keep n <= 12 for noisy simulation.
  *   h Q               Hadamard on qubit Q
  *   x Q               Pauli-X (NOT) on qubit Q
  *   y Q               Pauli-Y on qubit Q
@@ -214,8 +217,8 @@ export function parse(code) {
     // ── Qubit allocation ──
     if (op === "qubits" || op === "qreg") {
       const n = parseInt(parts[1]);
-      if (isNaN(n) || n < 1 || n > 8) {
-        errors.push({ line: i, msg: `Invalid qubit count: must be 1-8` });
+      if (isNaN(n) || n < 1 || n > 16) {
+        errors.push({ line: i, msg: `Invalid qubit count: must be 1-16 (keep <= 12 for noisy/density-matrix mode)` });
         continue;
       }
       nQubits = n;
