@@ -277,7 +277,7 @@ export default function App() {
     const desc = formatInstruction(inst);
     setLog(p => [...p, `Step ${nextIdx + 1}/${gates.length}: ${desc}`]);
 
-    setStepIndex(nextIdx);
+    setStepIndex(() => nextIdx);
   }, [code, stepIndex]);
 
   const handleReset = useCallback(() => {
@@ -482,7 +482,7 @@ export default function App() {
   const handleGateDropAngle = useCallback((gateName, qubitIndex, angle, colIndex) => {
     const dslLine = `${gateName.toUpperCase()} ${angle} ${qubitIndex}`;
     const lines = code.split('\n');
-    const insertAfterLine = colIndex !== undefined && colIndex < gateInstructions.length
+    const insertAfterLine = colIndex !== undefined && colIndex >= 0 && colIndex < gateInstructions.length
       ? gateInstructions[colIndex].line
       : lines.length - 1;
     const newLines = [
