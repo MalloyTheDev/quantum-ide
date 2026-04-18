@@ -214,6 +214,10 @@ function _tabBtn(label, active, onClick) {
  */
 function DensityMatrixView({ densityMatrix, nQubits, actions }) {
   const [showHeatmap, setShowHeatmap] = useState(false);
+  const probabilities = useMemo(
+    () => densityMatrix ? densityMatrix.map((row, i) => row[i][0]) : [],
+    [densityMatrix]
+  );
 
   if (!densityMatrix || nQubits === 0) {
     return (
@@ -236,10 +240,6 @@ function DensityMatrixView({ densityMatrix, nQubits, actions }) {
   }
 
   const dim = 1 << nQubits;
-  const probabilities = useMemo(
-    () => densityMatrix.map((row, i) => row[i][0]),
-    [densityMatrix]
-  );
 
   const tabActions = (
     <div style={{ display: 'flex', alignItems: 'center', gap: T.space[2] }}>

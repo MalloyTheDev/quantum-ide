@@ -288,26 +288,26 @@ export function measureDM(rho, qubitIndex, nQubits) {
 /**
  * Compute the Bloch vector for qubit `qubitIndex` via partial trace.
  *
- * The reduced density matrix ρ_k is 2×2. Bloch components:
- *   x = 2·Re(ρ_k[1][0]),  y = 2·Im(ρ_k[1][0]),  z = ρ_k[0][0] − ρ_k[1][1]
+ * The reduced density matrix ρ_k is 2x2. Bloch components:
+ *   x = 2*Re(ρ_k[0][1]),  y = 2*Im(ρ_k[0][1]),  z = ρ_k[0][0] - ρ_k[1][1]
  *
- * Convention matches simulator.js getBlochVectors (uses ρ[1][0] off-diagonal).
+ * Uses the upper off-diagonal ρ[0][1] to match the statevector path convention.
  */
 export function getBlochVectorDM(rho, qubitIndex, nQubits) {
   const halfDim = 1 << (nQubits - 1);
-  let rho00 = 0, rho11 = 0, re10 = 0, im10 = 0;
+  let rho00 = 0, rho11 = 0, re01 = 0, im01 = 0;
 
   for (let m = 0; m < halfDim; m++) {
     const m0 = _insertBit(m, qubitIndex, 0);
     const m1 = _insertBit(m, qubitIndex, 1);
     rho00 += rho[m0][m0][0];
     rho11 += rho[m1][m1][0];
-    re10  += rho[m1][m0][0];
-    im10  += rho[m1][m0][1];
+    re01  += rho[m0][m1][0];
+    im01  += rho[m0][m1][1];
   }
 
-  const x = 2 * re10;
-  const y = 2 * im10;
+  const x = 2 * re01;
+  const y = 2 * im01;
   const z = rho00 - rho11;
   const theta = Math.acos(Math.max(-1, Math.min(1, z)));
   const phi   = Math.atan2(y, x);

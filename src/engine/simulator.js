@@ -523,7 +523,6 @@ export function executeNoisyProgram(instructions, nQubits, noiseConfig = {}, cus
   const { model = 'depolarizing', strength = 0.01 } = noiseConfig;
   const measurements = [];
 
-  // Build the Kraus operators for the chosen noise model
   function getKraus() {
     switch (model) {
       case 'amplitude_damping': return amplitudeDampingChannel(strength);
@@ -533,7 +532,6 @@ export function executeNoisyProgram(instructions, nQubits, noiseConfig = {}, cus
     }
   }
 
-  // Apply noise to every qubit after a gate
   function applyNoise(rho) {
     const kraus = getKraus();
     let r = rho;
@@ -543,9 +541,10 @@ export function executeNoisyProgram(instructions, nQubits, noiseConfig = {}, cus
     return r;
   }
 
-  let rho = createDensityMatrix(nQubits);
-
-  for (const inst of instructions) {
+  // Apply one instruction to rho in-place, returning the updated rho.
+  // Custom gate bodies recurse here instead of re-entering executeNoisyProgram,
+  // so they evolve the live state rather than starting from |0>.
+  function applyInst(rho, inst) {
     switch (inst.type) {
       case 'qubits':
         break;
@@ -625,9 +624,7 @@ export function executeNoisyProgram(instructions, nQubits, noiseConfig = {}, cus
               ...bodyInst,
               qubits: bodyInst.qubits?.map(localIdx => inst.qubits[localIdx]),
             };
-            // Inline recursion for custom gates (single level only)
-            const subResult = executeNoisyProgram([remapped], nQubits, noiseConfig, {});
-            rho = subResult.densityMatrix;
+            rho = applyInst(rho, remapped);
           }
         }
         break;
@@ -636,9 +633,14 @@ export function executeNoisyProgram(instructions, nQubits, noiseConfig = {}, cus
       default:
         break;
     }
+    return rho;
   }
 
-  // Compute Bloch vectors from the final density matrix
+  let rho = createDensityMatrix(nQubits);
+  for (const inst of instructions) {
+    rho = applyInst(rho, inst);
+  }
+
   const blochVectors = Array.from({ length: nQubits }, (_, k) =>
     getBlochVectorDM(rho, k, nQubits)
   );
