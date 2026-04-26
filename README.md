@@ -23,7 +23,7 @@ A desktop quantum computing IDE built with Electron, React, and Vite. Write circ
 Requires Node.js 18+.
 
 ```bash
-git clone https://github.com/your-username/quantum-ide.git
+git clone https://github.com/malloythedev/quantum-ide.git
 cd quantum-ide
 npm install
 
