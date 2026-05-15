@@ -11,7 +11,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "electron:dev": "concurrently -k -n VITE,ELECTRON -c cyan,magenta \"vite\" \"wait-on http://localhost:3000 && electron . --dev\"",
-    "test": "node --test tests/gates.test.js tests/measurement.test.js tests/multishot.test.js tests/noisy.test.js tests/qasm.test.js tests/custom_gates.test.js"
+    "test": "node --test tests/gates.test.js tests/measurement.test.js tests/multishot.test.js tests/noisy.test.js tests/qasm.test.js tests/custom_gates.test.js tests/parser.test.js"
   },
   "dependencies": {
     "react": "^18.3.1",

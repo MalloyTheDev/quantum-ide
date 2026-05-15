@@ -60,6 +60,29 @@ const ROTATION_NAMES = new Set(["rx", "ry", "rz"]);
  * Parse an angle string into a numeric value.
  * Supports: pi, pi/2, pi/4, pi/8, -pi, -pi/2, numeric literals, 2*pi, etc.
  */
+
+function stripInlineComment(line) {
+  const hashIdx = line.indexOf("#");
+  const slashIdx = line.indexOf("//");
+  const indices = [hashIdx, slashIdx].filter(idx => idx !== -1);
+  if (indices.length === 0) return line;
+  return line.slice(0, Math.min(...indices));
+}
+
+function expectArgCount(parts, expected, line, errors, label) {
+  const actual = parts.length - 1;
+  if (actual !== expected) {
+    const noun = expected === 1 ? "argument" : "arguments";
+    errors.push({ line, msg: `${label} expects ${expected} ${noun}, got ${actual}` });
+    return false;
+  }
+  return true;
+}
+
+function hasDuplicateQubits(qubits) {
+  return new Set(qubits).size !== qubits.length;
+}
+
 function parseAngle(str) {
   if (!str) return NaN;
 
@@ -186,7 +209,7 @@ export function parse(code) {
   let nQubits = 0;
 
   for (let i = 0; i < lines.length; i++) {
-    const raw = lines[i].trim();
+    const raw = stripInlineComment(lines[i]).trim();
 
     // Skip empty lines and comments
     if (!raw || raw.startsWith("#") || raw.startsWith("//")) continue;
@@ -206,9 +229,13 @@ export function parse(code) {
       const body = [];
 
       i++; // advance to first body line
+      let foundEnd = false;
       while (i < lines.length) {
-        const bodyRaw = lines[i].trim();
-        if (bodyRaw.toLowerCase() === "end") break;
+        const bodyRaw = stripInlineComment(lines[i]).trim();
+        if (bodyRaw.toLowerCase() === "end") {
+          foundEnd = true;
+          break;
+        }
         if (bodyRaw && !bodyRaw.startsWith("#") && !bodyRaw.startsWith("//")) {
           const bodyInst = parseGateBodyLine(bodyRaw.toLowerCase(), params, i, customGates);
           if (bodyInst) {
@@ -219,6 +246,11 @@ export function parse(code) {
         }
         i++;
       }
+
+      if (!foundEnd) {
+        errors.push({ line: i - 1, msg: `Unterminated gate definition '${name}': missing 'end'` });
+        continue;
+      }
       // i points to "end"; for-loop i++ moves past it
 
       customGates[name] = { params, body };
@@ -227,6 +259,7 @@ export function parse(code) {
 
     // ── Qubit allocation ──
     if (op === "qubits" || op === "qreg") {
+      if (!expectArgCount(parts, 1, i, errors, op.toUpperCase())) continue;
       const n = parseInt(parts[1]);
       if (isNaN(n) || n < 1 || n > 16) {
         errors.push({ line: i, msg: `Invalid qubit count: must be 1-16 (keep <= 12 for noisy/density-matrix mode)` });
@@ -239,6 +272,7 @@ export function parse(code) {
 
     // ── Single-qubit gates ──
     if (SINGLE_GATES.has(op)) {
+      if (!expectArgCount(parts, 1, i, errors, op.toUpperCase())) continue;
       const q = parseInt(parts[1]);
       if (isNaN(q) || q < 0) {
         errors.push({ line: i, msg: `${op.toUpperCase()} requires a qubit index` });
@@ -250,6 +284,7 @@ export function parse(code) {
 
     // ── Rotation gates ──
     if (ROTATION_NAMES.has(op)) {
+      if (!expectArgCount(parts, 2, i, errors, op.toUpperCase())) continue;
       const angleStr = parts[1];
       const qubitStr = parts[2];
       const angle = parseAngle(angleStr);
@@ -276,6 +311,7 @@ export function parse(code) {
 
     // ── Two-qubit gates ──
     if (op === "cx" || op === "cnot") {
+      if (!expectArgCount(parts, 2, i, errors, op.toUpperCase())) continue;
       const c = parseInt(parts[1]);
       const t = parseInt(parts[2]);
       if (isNaN(c) || isNaN(t) || c < 0 || t < 0) {
@@ -291,6 +327,7 @@ export function parse(code) {
     }
 
     if (op === "cz") {
+      if (!expectArgCount(parts, 2, i, errors, op.toUpperCase())) continue;
       const c = parseInt(parts[1]);
       const t = parseInt(parts[2]);
       if (isNaN(c) || isNaN(t) || c < 0 || t < 0) {
@@ -306,6 +343,7 @@ export function parse(code) {
     }
 
     if (op === "cs") {
+      if (!expectArgCount(parts, 2, i, errors, op.toUpperCase())) continue;
       const c = parseInt(parts[1]);
       const t = parseInt(parts[2]);
       if (isNaN(c) || isNaN(t) || c < 0 || t < 0) {
@@ -321,6 +359,7 @@ export function parse(code) {
     }
 
     if (op === "ct") {
+      if (!expectArgCount(parts, 2, i, errors, op.toUpperCase())) continue;
       const c = parseInt(parts[1]);
       const t = parseInt(parts[2]);
       if (isNaN(c) || isNaN(t) || c < 0 || t < 0) {
@@ -336,6 +375,7 @@ export function parse(code) {
     }
 
     if (op === "swap") {
+      if (!expectArgCount(parts, 2, i, errors, op.toUpperCase())) continue;
       const a = parseInt(parts[1]);
       const b = parseInt(parts[2]);
       if (isNaN(a) || isNaN(b) || a < 0 || b < 0) {
@@ -352,6 +392,7 @@ export function parse(code) {
 
     // ── Three-qubit gates ──
     if (op === "ccx" || op === "toffoli") {
+      if (!expectArgCount(parts, 3, i, errors, op.toUpperCase())) continue;
       const c1 = parseInt(parts[1]);
       const c2 = parseInt(parts[2]);
       const t  = parseInt(parts[3]);
@@ -359,16 +400,25 @@ export function parse(code) {
         errors.push({ line: i, msg: `CCX requires three qubit indices` });
         continue;
       }
+      if (hasDuplicateQubits([c1, c2, t])) {
+        errors.push({ line: i, msg: `CCX: control and target qubits must all differ` });
+        continue;
+      }
       instructions.push({ type: "ccx", qubits: [c1, c2, t], line: i });
       continue;
     }
 
     if (op === "cswap") {
+      if (!expectArgCount(parts, 3, i, errors, op.toUpperCase())) continue;
       const c  = parseInt(parts[1]);
       const t1 = parseInt(parts[2]);
       const t2 = parseInt(parts[3]);
       if (isNaN(c) || isNaN(t1) || isNaN(t2) || c < 0 || t1 < 0 || t2 < 0) {
         errors.push({ line: i, msg: `CSWAP requires three qubit indices` });
+        continue;
+      }
+      if (hasDuplicateQubits([c, t1, t2])) {
+        errors.push({ line: i, msg: `CSWAP: control and target qubits must all differ` });
         continue;
       }
       instructions.push({ type: "cswap", qubits: [c, t1, t2], line: i });
@@ -377,6 +427,7 @@ export function parse(code) {
 
     // ── Measurement ──
     if (op === "measure" || op === "m") {
+      if (!expectArgCount(parts, 1, i, errors, op.toUpperCase())) continue;
       if (parts[1] === "all") {
         instructions.push({ type: "measure_all", line: i });
       } else {
@@ -392,6 +443,7 @@ export function parse(code) {
 
     // ── Barrier ──
     if (op === "barrier") {
+      if (!expectArgCount(parts, 0, i, errors, op.toUpperCase())) continue;
       instructions.push({ type: "barrier", line: i });
       continue;
     }
@@ -399,6 +451,7 @@ export function parse(code) {
     // ── Custom gate call ──
     if (customGates[op]) {
       const def = customGates[op];
+      if (!expectArgCount(parts, def.params.length, i, errors, op.toUpperCase())) continue;
       const qubits = [];
       let valid = true;
       for (let k = 0; k < def.params.length; k++) {
