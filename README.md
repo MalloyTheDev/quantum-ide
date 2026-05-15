@@ -5,7 +5,7 @@ A desktop quantum computing IDE built with Electron, React, and Vite. Write circ
 ## Features
 
 - **Custom DSL** -- line-based quantum assembly with gates, rotations, measurement, barriers, and user-defined reusable gates
-- **State-vector simulator** -- pure JavaScript, up to 8 qubits, all gate math written from the unitary definitions
+- **State-vector simulator** -- pure JavaScript, up to 16 qubits, all gate math written from the unitary definitions
 - **Circuit diagram** -- SVG auto-generated from parsed instructions, highlights the active gate during step-through
 - **Step-through debugger** -- execute one instruction at a time and watch amplitudes update live
 - **Bloch sphere** -- per-qubit visualization computed by partial trace, shown as a 2D SVG projection
@@ -41,7 +41,7 @@ npm run build
 
 ```
 # Comments start with # or //
-qubits N           # allocate N qubits (1-8); inferred if omitted
+qubits N           # allocate N qubits (1-16); inferred if omitted
 
 # Single-qubit gates
 h 0                # Hadamard
@@ -81,6 +81,11 @@ Bell 0 1           # call it like any built-in gate
 ```
 
 Supported angle formats: `pi`, `pi/2`, `pi/4`, `pi/8`, `pi/3`, `pi/6`, `2*pi`, negated variants, and raw numeric radians.
+
+### Simulation Limits
+
+- **State-vector mode:** accepts 1-16 qubits. This is best for noiseless circuits and multi-shot sampling.
+- **Noisy / density-matrix mode:** uses a `2^n × 2^n` matrix, so memory grows much faster. Keep noisy circuits to 12 qubits or fewer, and prefer smaller examples for interactive use.
 
 ## Keyboard Shortcuts
 

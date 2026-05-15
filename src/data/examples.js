@@ -108,7 +108,7 @@ x 1
 x 2
 # Swap test circuit
 h 0
-swap 1 2
+cswap 0 1 2
 h 0
 measure 0`,
   },
