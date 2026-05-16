@@ -16,7 +16,9 @@ import { createDensityMatrix } from '../src/engine/densityMatrix.js';
 
 const EPS = 1e-9;
 
-function near(a, b) { return Math.abs(a - b) < EPS; }
+function near(a, b) {
+  return Math.abs(a - b) < EPS;
+}
 
 function trace(rho) {
   return rho.reduce((s, row, i) => s + row[i][0], 0);
@@ -91,7 +93,7 @@ describe('Hermiticity', () => {
         const im_ij = rho[i][j][1];
         const re_ji = rho[j][i][0];
         const im_ji = rho[j][i][1];
-        assert.ok(near(re_ij, re_ji),  `Re[${i}][${j}]=${re_ij} != Re[${j}][${i}]=${re_ji}`);
+        assert.ok(near(re_ij, re_ji), `Re[${i}][${j}]=${re_ij} != Re[${j}][${i}]=${re_ji}`);
         assert.ok(near(im_ij, -im_ji), `Im[${i}][${j}]=${im_ij} != -Im[${j}][${i}]=${im_ji}`);
       }
     }
@@ -134,28 +136,14 @@ describe('CS and CT gates in noisy mode', () => {
 describe('Custom gate in noisy mode', () => {
   it('custom gate does not reset state', () => {
     // Apply X then a custom gate that does nothing (identity) - state should remain |1>
-    const code = [
-      'gate ident(q0):',
-      '  x q0',
-      '  x q0',
-      'end',
-      'x 0',
-      'ident 0',
-    ].join('\n');
+    const code = ['gate ident(q0):', '  x q0', '  x q0', 'end', 'x 0', 'ident 0'].join('\n');
     const { densityMatrix } = runNoisy(code, 'depolarizing', 0);
     // Zero noise: should be close to pure |1> state, so rho[1][1] ~ 1
     assert.ok(densityMatrix[1][1][0] > 0.9, `Expected rho[1][1]~1, got ${densityMatrix[1][1][0]}`);
   });
 
   it('custom gate trace is preserved', () => {
-    const code = [
-      'gate bell(a, b):',
-      '  h a',
-      '  cx a b',
-      'end',
-      'qubits 2',
-      'bell 0 1',
-    ].join('\n');
+    const code = ['gate bell(a, b):', '  h a', '  cx a b', 'end', 'qubits 2', 'bell 0 1'].join('\n');
     const { densityMatrix } = runNoisy(code, 'depolarizing', 0.05);
     assert.ok(near(trace(densityMatrix), 1));
   });

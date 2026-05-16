@@ -191,7 +191,7 @@ describe('CNOT gate', () => {
 
   it('CNOT^2 = I', () => {
     let s = applySingleQubitGate(createState(2), FIXED_GATES.h, 0, 2);
-    const s0 = s.map(a => [...a]);
+    const s0 = s.map((a) => [...a]);
     s = applyCNOT(s, 0, 1, 2);
     s = applyCNOT(s, 0, 1, 2);
     for (let j = 0; j < 4; j++) {
@@ -211,7 +211,7 @@ describe('SWAP gate', () => {
 
   it('SWAP^2 = I', () => {
     let s = applySingleQubitGate(createState(2), FIXED_GATES.h, 0, 2);
-    const s0 = s.map(a => [...a]);
+    const s0 = s.map((a) => [...a]);
     s = applySWAP(s, 0, 1, 2);
     s = applySWAP(s, 0, 1, 2);
     for (let j = 0; j < 4; j++) {

@@ -22,15 +22,15 @@ function LogPanel({ errors, log }) {
       style={{
         height: 80,
         borderTop: `1px solid ${T.border.subtle}`,
-        overflow: "auto",
-        padding: "4px 12px",
+        overflow: 'auto',
+        padding: '4px 12px',
         fontSize: T.font.size.sm,
         fontFamily: T.font.mono,
         background: T.bg.deep,
       }}
     >
       {!hasContent && (
-        <div style={{ color: T.text.disabled, fontStyle: "italic" }}>
+        <div style={{ color: T.text.disabled, fontStyle: 'italic' }}>
           Output log -- run or step to see execution trace
         </div>
       )}
@@ -43,10 +43,10 @@ function LogPanel({ errors, log }) {
 
       {log.map((entry, i) => {
         let color = T.text.muted;
-        if (entry.startsWith("✓")) color = T.semantic.success;
-        else if (entry.startsWith("▶")) color = T.accent.soft;
-        else if (entry.startsWith("⏩")) color = T.semantic.warning;
-        else if (entry.startsWith("Step")) color = T.text.secondary;
+        if (entry.startsWith('✓')) color = T.semantic.success;
+        else if (entry.startsWith('▶')) color = T.accent.soft;
+        else if (entry.startsWith('⏩')) color = T.semantic.warning;
+        else if (entry.startsWith('Step')) color = T.text.secondary;
 
         return (
           <div key={`log-${i}`} style={{ color }}>

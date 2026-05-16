@@ -60,7 +60,7 @@ export function createState(nQubits) {
  * Deep-clone a state vector
  */
 export function cloneState(state) {
-  return state.map(a => [...a]);
+  return state.map((a) => [...a]);
 }
 
 // Single-Qubit Gate Application
@@ -88,8 +88,8 @@ export function applySingleQubitGate(state, gate, qubit, nQubits) {
     // Only process when the target qubit bit is 0 (avoid double-processing)
     if ((j >> qubit) & 1) continue;
 
-    const j0 = j;                  // index where qubit bit = 0
-    const j1 = j | (1 << qubit);   // index where qubit bit = 1
+    const j0 = j; // index where qubit bit = 0
+    const j1 = j | (1 << qubit); // index where qubit bit = 1
 
     const amp0 = state[j0];
     const amp1 = state[j1];
@@ -116,7 +116,7 @@ export function applyCNOT(state, control, target, nQubits) {
 
   for (let j = 0; j < size; j++) {
     // Only process states where control=1 and target=0
-    if (((j >> control) & 1) && !((j >> target) & 1)) {
+    if ((j >> control) & 1 && !((j >> target) & 1)) {
       const j1 = j | (1 << target);
       newState[j] = [...state[j1]];
       newState[j1] = [...state[j]];
@@ -147,7 +147,7 @@ export function applyControlledGate(state, gate, control, target, nQubits) {
 
   for (let j = 0; j < size; j++) {
     // Only process pairs where control=1 and target=0 (avoids double-processing)
-    if (((j >> control) & 1) && !((j >> target) & 1)) {
+    if ((j >> control) & 1 && !((j >> target) & 1)) {
       const j0 = j;
       const j1 = j | (1 << target);
 
@@ -170,7 +170,7 @@ export function applyToffoli(state, c1, c2, target, nQubits) {
   const size = 1 << nQubits;
 
   for (let j = 0; j < size; j++) {
-    if (((j >> c1) & 1) && ((j >> c2) & 1) && !((j >> target) & 1)) {
+    if ((j >> c1) & 1 && (j >> c2) & 1 && !((j >> target) & 1)) {
       const j1 = j | (1 << target);
       newState[j] = [...state[j1]];
       newState[j1] = [...state[j]];
@@ -189,7 +189,7 @@ export function applyCSWAP(state, control, t1, t2, nQubits) {
 
   for (let j = 0; j < size; j++) {
     // Only process states where control=1, t1=1, t2=0
-    if (((j >> control) & 1) && ((j >> t1) & 1) && !((j >> t2) & 1)) {
+    if ((j >> control) & 1 && (j >> t1) & 1 && !((j >> t2) & 1)) {
       const jSwapped = (j ^ (1 << t1)) | (1 << t2);
       newState[j] = [...state[jSwapped]];
       newState[jSwapped] = [...state[j]];
@@ -256,6 +256,13 @@ export function measureAll(state, nQubits) {
 }
 
 // Instruction Execution
+
+function getLastMeasurement(measurements, qubit) {
+  for (let i = measurements.length - 1; i >= 0; i--) {
+    if (measurements[i].qubit === qubit) return measurements[i];
+  }
+  return null;
+}
 
 /**
  * Execute a single parsed instruction against the current state.
@@ -331,7 +338,7 @@ export function executeInstruction(instruction, state, nQubits, measurements, cu
         for (const bodyInst of def.body) {
           const remapped = {
             ...bodyInst,
-            qubits: bodyInst.qubits?.map(localIdx => instruction.qubits[localIdx]),
+            qubits: bodyInst.qubits?.map((localIdx) => instruction.qubits[localIdx]),
           };
           const r = executeInstruction(remapped, s, nQubits, m, customGates);
           s = r.state;
@@ -359,6 +366,16 @@ export function executeInstruction(instruction, state, nQubits, measurements, cu
       // No-op: barriers are visual only
       break;
 
+    case 'conditional': {
+      const last = getLastMeasurement(m, instruction.condition.qubit);
+      if (last?.outcome === instruction.condition.value) {
+        const result = executeInstruction(instruction.instruction, s, nQubits, m, customGates);
+        s = result.state;
+        m = result.measurements;
+      }
+      break;
+    }
+
     default:
       break;
   }
@@ -373,7 +390,7 @@ export function executeProgram(instructions, nQubits, customGates = {}) {
   let state = createState(nQubits);
   let measurements = [];
 
-  const gates = instructions.filter(i => i.type !== 'qubits');
+  const gates = instructions.filter((i) => i.type !== 'qubits');
 
   for (const inst of gates) {
     const result = executeInstruction(inst, state, nQubits, measurements, customGates);
@@ -412,7 +429,7 @@ export function runMultiShot(instructions, nQubits, shots, customGates = {}) {
     if (result.measurements.length === 0) {
       // No explicit measurements - sample from the final state vector
       const { outcomes } = measureAll(result.state, nQubits);
-      bitstring = outcomes.map(m => m.outcome).join('');
+      bitstring = outcomes.map((m) => m.outcome).join('');
     } else {
       // Collect the last measured outcome per qubit
       const lastMeasured = {};
@@ -453,7 +470,7 @@ export function getProbabilities(state) {
 export function getNonZeroStates(state, threshold = 1e-10) {
   return state
     .map((amp, index) => ({ index, amplitude: amp, probability: cabs2(amp) }))
-    .filter(entry => entry.probability > threshold);
+    .filter((entry) => entry.probability > threshold);
 }
 
 /**
@@ -497,8 +514,8 @@ export function getBlochVectors(stateVector, nQubits) {
   for (let k = 0; k < nQubits; k++) {
     let rho00 = 0;
     let rho11 = 0;
-    let re01  = 0;
-    let im01  = 0;
+    let re01 = 0;
+    let im01 = 0;
 
     for (let i = 0; i < size; i++) {
       if ((i >> k) & 1) {
@@ -517,11 +534,11 @@ export function getBlochVectors(stateVector, nQubits) {
       }
     }
 
-    const x     = 2 * re01;
-    const y     = 2 * im01;
-    const z     = rho00 - rho11;
+    const x = 2 * re01;
+    const y = 2 * im01;
+    const z = rho00 - rho11;
     const theta = Math.acos(Math.max(-1, Math.min(1, z)));
-    const phi   = Math.atan2(y, x);
+    const phi = Math.atan2(y, x);
     vectors.push({ x, y, z, theta, phi });
   }
 
@@ -550,10 +567,13 @@ export function executeNoisyProgram(instructions, nQubits, noiseConfig = {}, cus
 
   function getKraus() {
     switch (model) {
-      case 'amplitude_damping': return amplitudeDampingChannel(strength);
-      case 'phase_flip':        return phaseFlipChannel(strength);
+      case 'amplitude_damping':
+        return amplitudeDampingChannel(strength);
+      case 'phase_flip':
+        return phaseFlipChannel(strength);
       case 'depolarizing':
-      default:                  return depolarizingChannel(strength);
+      default:
+        return depolarizingChannel(strength);
     }
   }
 
@@ -657,13 +677,23 @@ export function executeNoisyProgram(instructions, nQubits, noiseConfig = {}, cus
           for (const bodyInst of def.body) {
             const remapped = {
               ...bodyInst,
-              qubits: bodyInst.qubits?.map(localIdx => inst.qubits[localIdx]),
+              qubits: bodyInst.qubits?.map((localIdx) => inst.qubits[localIdx]),
             };
             // Recurse with the full customGates registry so nested gates work
             const r = applyInst(rho, remapped);
             rho = r.rho;
             meas.push(...r.meas);
           }
+        }
+        break;
+      }
+
+      case 'conditional': {
+        const last = getLastMeasurement(measurements, inst.condition.qubit);
+        if (last?.outcome === inst.condition.value) {
+          const r = applyInst(rho, inst.instruction);
+          rho = r.rho;
+          meas.push(...r.meas);
         }
         break;
       }
@@ -684,9 +714,7 @@ export function executeNoisyProgram(instructions, nQubits, noiseConfig = {}, cus
   }
 
   // Compute Bloch vectors from the final density matrix
-  const blochVectors = Array.from({ length: nQubits }, (_, k) =>
-    getBlochVectorDM(rho, k, nQubits)
-  );
+  const blochVectors = Array.from({ length: nQubits }, (_, k) => getBlochVectorDM(rho, k, nQubits));
 
   return { densityMatrix: rho, blochVectors, measurements };
 }

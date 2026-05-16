@@ -16,20 +16,20 @@ const PI = Math.PI;
 
 // Map numeric angle -> symbolic string for clean QASM output
 const ANGLE_SYMS = [
-  [2 * PI,    '2*pi'],
-  [-2 * PI,   '-2*pi'],
-  [PI,        'pi'],
-  [-PI,       '-pi'],
-  [PI / 2,    'pi/2'],
-  [-PI / 2,   '-pi/2'],
-  [PI / 3,    'pi/3'],
-  [-PI / 3,   '-pi/3'],
-  [PI / 4,    'pi/4'],
-  [-PI / 4,   '-pi/4'],
-  [PI / 6,    'pi/6'],
-  [-PI / 6,   '-pi/6'],
-  [PI / 8,    'pi/8'],
-  [-PI / 8,   '-pi/8'],
+  [2 * PI, '2*pi'],
+  [-2 * PI, '-2*pi'],
+  [PI, 'pi'],
+  [-PI, '-pi'],
+  [PI / 2, 'pi/2'],
+  [-PI / 2, '-pi/2'],
+  [PI / 3, 'pi/3'],
+  [-PI / 3, '-pi/3'],
+  [PI / 4, 'pi/4'],
+  [-PI / 4, '-pi/4'],
+  [PI / 6, 'pi/6'],
+  [-PI / 6, '-pi/6'],
+  [PI / 8, 'pi/8'],
+  [-PI / 8, '-pi/8'],
 ];
 
 function angleToStr(angle) {
@@ -47,7 +47,7 @@ const GATE_TO_QASM = { h: 'h', x: 'x', y: 'y', z: 'z', s: 's', t: 't', sdg: 'sdg
  * Returns a string (may contain newlines) or null to skip.
  */
 function emitInstruction(inst, nQubits, customGates, qubitOf) {
-  const q = qubitOf || (i => i);
+  const q = qubitOf || ((i) => i);
 
   switch (inst.type) {
     case 'qubits':
@@ -73,13 +73,7 @@ function emitInstruction(inst, nQubits, customGates, qubitOf) {
       //   t q[c]; cx q[c],q[t]; tdg q[t]; cx q[c],q[t]; t q[t];
       const c = q(inst.qubits[0]);
       const t = q(inst.qubits[1]);
-      return [
-        `t q[${c}];`,
-        `cx q[${c}],q[${t}];`,
-        `tdg q[${t}];`,
-        `cx q[${c}],q[${t}];`,
-        `t q[${t}];`,
-      ].join('\n');
+      return [`t q[${c}];`, `cx q[${c}],q[${t}];`, `tdg q[${t}];`, `cx q[${c}],q[${t}];`, `t q[${t}];`].join('\n');
     }
 
     case 'ct': {
@@ -117,6 +111,9 @@ function emitInstruction(inst, nQubits, customGates, qubitOf) {
     case 'barrier':
       return 'barrier q;';
 
+    case 'conditional':
+      return `// unsupported conditional: if m[${inst.condition.qubit}] == ${inst.condition.value}: ${emitInstruction(inst.instruction, nQubits, customGates, q) ?? ''}`;
+
     case 'custom_gate': {
       const def = customGates[inst.name];
       if (!def) return `// unsupported: ${inst.name}`;
@@ -124,7 +121,7 @@ function emitInstruction(inst, nQubits, customGates, qubitOf) {
       for (const bodyInst of def.body) {
         const remapped = {
           ...bodyInst,
-          qubits: bodyInst.qubits?.map(localIdx => inst.qubits[localIdx]),
+          qubits: bodyInst.qubits?.map((localIdx) => inst.qubits[localIdx]),
         };
         const line = emitInstruction(remapped, nQubits, customGates, q);
         if (line !== null) expanded.push(line);
@@ -146,14 +143,7 @@ function emitInstruction(inst, nQubits, customGates, qubitOf) {
  * @returns {string} Valid OpenQASM 2.0 source
  */
 export function exportToQASM(instructions, nQubits, customGates = {}) {
-  const lines = [
-    'OPENQASM 2.0;',
-    'include "qelib1.inc";',
-    '',
-    `qreg q[${nQubits}];`,
-    `creg c[${nQubits}];`,
-    '',
-  ];
+  const lines = ['OPENQASM 2.0;', 'include "qelib1.inc";', '', `qreg q[${nQubits}];`, `creg c[${nQubits}];`, ''];
 
   for (const inst of instructions) {
     const out = emitInstruction(inst, nQubits, customGates, null);
@@ -165,9 +155,8 @@ export function exportToQASM(instructions, nQubits, customGates = {}) {
 
 // QASM gate name -> DSL instruction type / gate name
 const QASM_SINGLE = new Set(['h', 'x', 'y', 'z', 's', 't', 'sdg', 'tdg', 'id']);
-const QASM_ROT    = new Set(['rx', 'ry', 'rz']);
-const QASM_TWO    = new Set(['cx', 'cz', 'swap']);
-const QASM_THREE  = new Set(['ccx', 'cswap']);
+const QASM_TWO = new Set(['cx', 'cz', 'swap']);
+const QASM_THREE = new Set(['ccx', 'cswap']);
 
 /**
  * Try to convert a single line from a QASM gate body to a DSL gate-body instruction.
@@ -182,8 +171,8 @@ function tryConvertBodyLine(line, params) {
   const stripped = line.replace(/;$/, '').trim();
   if (!stripped || stripped.startsWith('//')) return null;
 
-  // Rotation: rx(angle) q0
-  const rotM = stripped.match(/^(rx|ry|rz)\(([^)]+)\)\s+(\w+)$/);
+  // Rotation/phase: rx(angle) q0, u1(angle) q0
+  const rotM = stripped.match(/^(rx|ry|rz|u1)\(([^)]+)\)\s+(\w+)$/);
   if (rotM) {
     const pName = rotM[3].toLowerCase();
     if (!params.includes(pName)) return null;
@@ -230,8 +219,9 @@ function tryConvertBodyLine(line, params) {
  * @param {string} qasmString - OpenQASM 2.0 source
  * @returns {string} DSL source text suitable for the code editor
  */
-export function importFromQASM(qasmString) {
+function convertFromQASM(qasmString) {
   const dsl = [];
+  const diagnostics = [];
   const definedGates = new Set(); // gate names defined in this QASM file
   const qasmLines = qasmString.split('\n');
   let i = 0;
@@ -246,16 +236,20 @@ export function importFromQASM(qasmString) {
     const raw = line.replace(/;$/, '').trim();
 
     if (raw.startsWith('OPENQASM')) continue;
-    if (raw.startsWith('include'))  continue;
-    if (raw.startsWith('creg'))     continue;
+    if (raw.startsWith('include')) continue;
+    if (raw.startsWith('creg')) continue;
 
     // Gate definition blocks - try to reconstruct as DSL custom gates
     if (/^gate\b/.test(raw)) {
       // Parse: gate Name[(classical_params)] q0, q1, ... { body }
       const headerM = raw.match(/^gate\s+(\w+)\s*(?:\([^)]*\))?\s+([^{]+?)\s*(?:\{(.*))?$/);
       if (headerM) {
-        const gName    = headerM[1].toLowerCase();
-        const qParams  = headerM[2].trim().split(/[\s,]+/).filter(Boolean).map(s => s.toLowerCase());
+        const gName = headerM[1].toLowerCase();
+        const qParams = headerM[2]
+          .trim()
+          .split(/[\s,]+/)
+          .filter(Boolean)
+          .map((s) => s.toLowerCase());
         const inlineBody = (headerM[3] || '').replace(/\s*\}.*$/, '').trim();
 
         // Collect body lines until the matching closing brace
@@ -289,12 +283,23 @@ export function importFromQASM(qasmString) {
         }
 
         if (canConvert && dslBody.length > 0) {
-          dsl.push(`gate ${gName}(${qParams.join(', ')}):`)
+          dsl.push(`gate ${gName}(${qParams.join(', ')}):`);
           dsl.push(...dslBody);
           dsl.push('end');
           definedGates.add(gName);
+        } else {
+          diagnostics.push({
+            line: i,
+            msg: `Unsupported gate definition '${gName}' was skipped`,
+          });
+          dsl.push(`# unsupported gate definition: ${gName}`);
         }
       } else {
+        diagnostics.push({
+          line: i,
+          msg: `Unsupported gate definition header: ${raw}`,
+        });
+        dsl.push(`# unsupported gate definition: ${raw}`);
         // Can't parse the gate header - skip the block
         let depth = (raw.match(/\{/g) || []).length - (raw.match(/\}/g) || []).length;
         while (depth > 0 && i < qasmLines.length) {
@@ -309,17 +314,26 @@ export function importFromQASM(qasmString) {
 
     // qreg q[N] -> qubits N
     const qregM = raw.match(/^qreg\s+\w+\[(\d+)\]/);
-    if (qregM) { dsl.push(`qubits ${qregM[1]}`); continue; }
+    if (qregM) {
+      dsl.push(`qubits ${qregM[1]}`);
+      continue;
+    }
 
     // measure q[x] -> c[y] -> measure x
     const measM = raw.match(/^measure\s+\w+\[(\d+)\]\s*->\s*\w+\[(\d+)\]/);
-    if (measM) { dsl.push(`measure ${measM[1]}`); continue; }
+    if (measM) {
+      dsl.push(`measure ${measM[1]}`);
+      continue;
+    }
 
     // barrier (any form) -> barrier
-    if (/^barrier\b/.test(raw)) { dsl.push('barrier'); continue; }
+    if (/^barrier\b/.test(raw)) {
+      dsl.push('barrier');
+      continue;
+    }
 
-    // Rotation gates: rx(angle) q[x]
-    const rotM = raw.match(/^(rx|ry|rz)\(([^)]+)\)\s+\w+\[(\d+)\]/);
+    // Rotation gates: rx(angle) q[x], u1(angle) q[x]
+    const rotM = raw.match(/^(rx|ry|rz|u1)\(([^)]+)\)\s+\w+\[(\d+)\]/);
     if (rotM) {
       const angleStr = rotM[2].trim().toLowerCase();
       dsl.push(`${rotM[1]} ${angleStr} ${rotM[3]}`);
@@ -349,10 +363,10 @@ export function importFromQASM(qasmString) {
 
     // Custom gate calls (gates defined earlier in this file)
     if (raw) {
-      const callM = raw.match(/^(\w+)\s+([\w\[\],\s]+)$/);
+      const callM = raw.match(/^(\w+)\s+([\w[\],\s]+)$/);
       if (callM && definedGates.has(callM[1].toLowerCase())) {
         const gName = callM[1].toLowerCase();
-        const args = [...raw.matchAll(/\[(\d+)\]/g)].map(m => m[1]);
+        const args = [...raw.matchAll(/\[(\d+)\]/g)].map((m) => m[1]);
         if (args.length > 0) {
           dsl.push(`${gName} ${args.join(' ')}`);
           continue;
@@ -361,8 +375,19 @@ export function importFromQASM(qasmString) {
     }
 
     // Unknown non-empty line
-    if (raw) dsl.push(`# unsupported: ${raw}`);
+    if (raw) {
+      diagnostics.push({ line: i, msg: `Unsupported QASM line: ${raw}` });
+      dsl.push(`# unsupported: ${raw}`);
+    }
   }
 
-  return dsl.join('\n');
+  return { code: dsl.join('\n'), diagnostics };
+}
+
+export function importFromQASM(qasmString) {
+  return convertFromQASM(qasmString).code;
+}
+
+export function importFromQASMWithDiagnostics(qasmString) {
+  return convertFromQASM(qasmString);
 }

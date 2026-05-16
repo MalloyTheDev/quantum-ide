@@ -30,6 +30,12 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Run lint
+        run: npm run lint
+
+      - name: Run React tests
+        run: npm run test:ui
+
   build:
     name: Build
     runs-on: ubuntu-latest
@@ -48,3 +54,28 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Electron package dry run
+        run: npm run package:dir
+
+  e2e:
+    name: Playwright Smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run smoke tests
+        run: npm run test:e2e

@@ -67,35 +67,30 @@ describe('Multi-shot statistics', () => {
     const p0 = (counts['0'] || 0) / SHOTS;
     const p1 = (counts['1'] || 0) / SHOTS;
     // Allow generous tolerance for statistical fluctuation (3-sigma ~ 0.03)
-    assert.ok(p0 > 0.40 && p0 < 0.60, `p(0) = ${p0.toFixed(3)} not near 0.5`);
-    assert.ok(p1 > 0.40 && p1 < 0.60, `p(1) = ${p1.toFixed(3)} not near 0.5`);
+    assert.ok(p0 > 0.4 && p0 < 0.6, `p(0) = ${p0.toFixed(3)} not near 0.5`);
+    assert.ok(p1 > 0.4 && p1 < 0.6, `p(1) = ${p1.toFixed(3)} not near 0.5`);
   });
 
   it('Bell state produces only 00 or 11', () => {
     const { counts } = parseAndRun('h 0\ncx 0 1', 200);
     const keys = Object.keys(counts);
-    assert.ok(keys.every(k => k === '00' || k === '11'),
-      `Unexpected outcomes: ${keys.filter(k => k !== '00' && k !== '11')}`);
+    assert.ok(
+      keys.every((k) => k === '00' || k === '11'),
+      `Unexpected outcomes: ${keys.filter((k) => k !== '00' && k !== '11')}`
+    );
   });
 
   it('last measurement wins when qubit is measured twice', () => {
     // x 0 sets q0 to |1>; first measure records 1; x 0 flips q0 to |0>;
     // second measure records 0; only the last value (0) appears in the bitstring
-    const code = [
-      'qubits 2',
-      'x 0',
-      'measure 0',
-      'x 0',
-      'h 1',
-      'measure 0',
-    ].join('\n');
+    const code = ['qubits 2', 'x 0', 'measure 0', 'x 0', 'h 1', 'measure 0'].join('\n');
     const { counts } = parseAndRun(code, 200);
     for (const key of Object.keys(counts)) {
       assert.equal(key.length, 2, `Bitstring "${key}" is not 2 bits wide`);
       assert.equal(key[0], '0', `q0 last-measurement should be 0, got bitstring "${key}"`);
     }
     // q1 was put in |+> and never measured - both values should appear across shots
-    const q1vals = new Set(Object.keys(counts).map(k => k[1]));
+    const q1vals = new Set(Object.keys(counts).map((k) => k[1]));
     assert.ok(q1vals.has('0') && q1vals.has('1'), 'Unmeasured q1 (in |+>) should show both 0 and 1');
   });
 
@@ -106,7 +101,7 @@ describe('Multi-shot statistics', () => {
     const keysExplicit = new Set(Object.keys(cExplicit));
     const keysImplicit = new Set(Object.keys(cImplicit));
     // Both should only contain '00' and '11'
-    assert.ok([...keysExplicit].every(k => k === '00' || k === '11'));
-    assert.ok([...keysImplicit].every(k => k === '00' || k === '11'));
+    assert.ok([...keysExplicit].every((k) => k === '00' || k === '11'));
+    assert.ok([...keysImplicit].every((k) => k === '00' || k === '11'));
   });
 });

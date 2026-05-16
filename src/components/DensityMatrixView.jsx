@@ -9,66 +9,81 @@ function ProbView({ probabilities, nQubits }) {
   const dim = probabilities.length;
 
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 2,
-      padding: '8px 12px',
-      overflow: 'auto',
-      flex: 1,
-    }}>
-      <div style={{
-        fontSize: T.font.size.xs,
-        color: '#9ca3af',
-        fontFamily: 'monospace',
-        marginBottom: 4,
-        fontWeight: 600,
-      }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+        padding: '8px 12px',
+        overflow: 'auto',
+        flex: 1,
+      }}
+    >
+      <div
+        style={{
+          fontSize: T.font.size.xs,
+          color: '#9ca3af',
+          fontFamily: 'monospace',
+          marginBottom: 4,
+          fontWeight: 600,
+        }}
+      >
         DIAGONAL - {nQubits} qubit{nQubits > 1 ? 's' : ''}, {dim} basis states
       </div>
 
       {probabilities.map((prob, i) => {
         const label = '|' + i.toString(2).padStart(nQubits, '0') + '⟩';
         return (
-          <div key={i} style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            fontFamily: 'monospace',
-            fontSize: T.font.size.md,
-          }}>
-            <span style={{
-              color: '#c4b5fd',
-              width: Math.max(nQubits * 10 + 24, 44),
-              flexShrink: 0,
-            }}>
+          <div
+            key={i}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              fontFamily: 'monospace',
+              fontSize: T.font.size.md,
+            }}
+          >
+            <span
+              style={{
+                color: '#c4b5fd',
+                width: Math.max(nQubits * 10 + 24, 44),
+                flexShrink: 0,
+              }}
+            >
               {label}
             </span>
 
-            <div style={{
-              flex: 1,
-              height: 14,
-              background: '#1e1b2e',
-              borderRadius: T.radius.sm,
-              overflow: 'hidden',
-              minWidth: 40,
-            }}>
-              <div style={{
-                width: `${(prob / maxProb) * 100}%`,
-                height: '100%',
+            <div
+              style={{
+                flex: 1,
+                height: 14,
+                background: '#1e1b2e',
                 borderRadius: T.radius.sm,
-                background: prob > 0.5 ? '#7c3aed' : prob > 0.1 ? '#6366f1' : '#4f46e5',
-                transition: 'width 0.3s ease',
-              }} />
+                overflow: 'hidden',
+                minWidth: 40,
+              }}
+            >
+              <div
+                style={{
+                  width: `${(prob / maxProb) * 100}%`,
+                  height: '100%',
+                  borderRadius: T.radius.sm,
+                  background: prob > 0.5 ? '#7c3aed' : prob > 0.1 ? '#6366f1' : '#4f46e5',
+                  transition: 'width 0.3s ease',
+                }}
+              />
             </div>
 
-            <span style={{
-              color: '#a5b4fc',
-              width: 56,
-              textAlign: 'right',
-              flexShrink: 0,
-              fontSize: T.font.size.sm,
-            }}>
+            <span
+              style={{
+                color: '#a5b4fc',
+                width: 56,
+                textAlign: 'right',
+                flexShrink: 0,
+                fontSize: T.font.size.sm,
+              }}
+            >
               {(prob * 100).toFixed(1)}%
             </span>
           </div>
@@ -80,7 +95,7 @@ function ProbView({ probabilities, nQubits }) {
 
 // ── Heatmap view ──────────────────────────────────────────────────────────────
 
-function HeatmapView({ densityMatrix, dim, nQubits }) {
+function HeatmapView({ densityMatrix, dim }) {
   // Cap at 8×8 (3 qubits)
   const displayDim = Math.min(dim, 8);
   const CELL = Math.min(36, Math.floor(280 / displayDim));
@@ -102,20 +117,24 @@ function HeatmapView({ densityMatrix, dim, nQubits }) {
   }, [densityMatrix, displayDim]);
 
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      padding: '8px 12px',
-      overflow: 'auto',
-      flex: 1,
-      gap: T.space[3],
-    }}>
-      <div style={{
-        fontSize: T.font.size.xs,
-        color: '#9ca3af',
-        fontFamily: 'monospace',
-        fontWeight: 600,
-      }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        padding: '8px 12px',
+        overflow: 'auto',
+        flex: 1,
+        gap: T.space[3],
+      }}
+    >
+      <div
+        style={{
+          fontSize: T.font.size.xs,
+          color: '#9ca3af',
+          fontFamily: 'monospace',
+          fontWeight: 600,
+        }}
+      >
         |ρ_ij| HEATMAP - {displayDim}×{displayDim}
         {dim > 8 && <span style={{ color: T.text.disabled }}> (showing first 8×8)</span>}
       </div>
@@ -138,7 +157,11 @@ function HeatmapView({ densityMatrix, dim, nQubits }) {
                 fill={`rgb(${r},${g},${b})`}
                 rx={1}
               >
-                <title>ρ[{i}][{j}] = {densityMatrix[i][j][0].toFixed(4)}{densityMatrix[i][j][1] >= 0 ? '+' : ''}{densityMatrix[i][j][1].toFixed(4)}i  |mag|={mag.toFixed(4)}</title>
+                <title>
+                  ρ[{i}][{j}] = {densityMatrix[i][j][0].toFixed(4)}
+                  {densityMatrix[i][j][1] >= 0 ? '+' : ''}
+                  {densityMatrix[i][j][1].toFixed(4)}i |mag|={mag.toFixed(4)}
+                </title>
               </rect>
             );
           })
@@ -160,20 +183,24 @@ function HeatmapView({ densityMatrix, dim, nQubits }) {
       </svg>
 
       {/* Color scale legend */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: T.space[3],
-        fontSize: T.font.size.xs,
-        color: T.text.dim,
-      }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: T.space[3],
+          fontSize: T.font.size.xs,
+          color: T.text.dim,
+        }}
+      >
         <span>0</span>
-        <div style={{
-          width: 80,
-          height: 8,
-          borderRadius: 2,
-          background: 'linear-gradient(to right, #000037, #a73aff)',
-        }} />
+        <div
+          style={{
+            width: 80,
+            height: 8,
+            borderRadius: 2,
+            background: 'linear-gradient(to right, #000037, #a73aff)',
+          }}
+        />
         <span>max |ρ_ij|</span>
       </div>
     </div>
@@ -214,25 +241,24 @@ function _tabBtn(label, active, onClick) {
  */
 function DensityMatrixView({ densityMatrix, nQubits, actions }) {
   const [showHeatmap, setShowHeatmap] = useState(false);
-  const probabilities = useMemo(
-    () => densityMatrix ? densityMatrix.map((row, i) => row[i][0]) : [],
-    [densityMatrix]
-  );
+  const probabilities = useMemo(() => (densityMatrix ? densityMatrix.map((row, i) => row[i][0]) : []), [densityMatrix]);
 
   if (!densityMatrix || nQubits === 0) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: 1 }}>
         <PanelHeader label="ρ DENSITY MATRIX" actions={actions} />
-        <div style={{
-          color: '#6b7280',
-          padding: 16,
-          fontSize: 13,
-          fontStyle: 'italic',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flex: 1,
-        }}>
+        <div
+          style={{
+            color: '#6b7280',
+            padding: 16,
+            fontSize: 13,
+            fontStyle: 'italic',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flex: 1,
+          }}
+        >
           Run a noisy simulation to see the density matrix
         </div>
       </div>
@@ -252,10 +278,11 @@ function DensityMatrixView({ densityMatrix, nQubits, actions }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: 1 }}>
       <PanelHeader label="ρ DENSITY MATRIX" actions={tabActions} />
-      {showHeatmap
-        ? <HeatmapView densityMatrix={densityMatrix} dim={dim} nQubits={nQubits} />
-        : <ProbView probabilities={probabilities} nQubits={nQubits} />
-      }
+      {showHeatmap ? (
+        <HeatmapView densityMatrix={densityMatrix} dim={dim} />
+      ) : (
+        <ProbView probabilities={probabilities} nQubits={nQubits} />
+      )}
     </div>
   );
 }

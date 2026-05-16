@@ -1,217 +1,220 @@
-import { useMemo, useRef, useCallback } from 'react';
+import { useMemo } from 'react';
+import CodeMirror from '@uiw/react-codemirror';
+import { EditorView, Decoration, keymap } from '@codemirror/view';
+import { RangeSetBuilder } from '@codemirror/state';
+import { autocompletion } from '@codemirror/autocomplete';
+import { StreamLanguage, foldService, syntaxHighlighting, HighlightStyle } from '@codemirror/language';
+import { linter, lintGutter } from '@codemirror/lint';
+import { searchKeymap } from '@codemirror/search';
+import { tags as tag } from '@lezer/highlight';
 import { T } from '../styles/tokens.js';
 
-const SYNTAX_PATTERNS = {
-  keywords: /^(qubits|qreg|measure|barrier|m)\b/i,
-  gates: /^(h|x|y|z|s|t|sdg|tdg|id|cx|cnot|cz|cs|ct|ccx|toffoli|cswap|swap|rx|ry|rz)\b/i,
-};
+const KEYWORDS = ['qubits', 'qreg', 'measure', 'm', 'barrier', 'gate', 'end', 'if'];
 
-/**
- * Code editor with syntax highlighting overlay.
- *
- * Architecture: transparent textarea on top of a colored div overlay.
- * The textarea captures input; the overlay renders highlighted text.
- * Both scroll together via synchronized scroll positions.
- */
-export default function CodeEditor({ code, onChange, activeLine, errorLines }) {
-  const overlayRef = useRef(null);
-  const textareaRef = useRef(null);
+const GATES = [
+  'h',
+  'x',
+  'y',
+  'z',
+  's',
+  't',
+  'sdg',
+  'tdg',
+  'id',
+  'cx',
+  'cnot',
+  'cz',
+  'cs',
+  'ct',
+  'swap',
+  'ccx',
+  'toffoli',
+  'cswap',
+  'rx',
+  'ry',
+  'rz',
+  'u1',
+];
 
-  const handleScroll = useCallback(() => {
-    if (overlayRef.current && textareaRef.current) {
-      overlayRef.current.scrollTop = textareaRef.current.scrollTop;
-      overlayRef.current.scrollLeft = textareaRef.current.scrollLeft;
-    }
-  }, []);
+const COMPLETIONS = [
+  ...KEYWORDS.map((label) => ({ label, type: 'keyword' })),
+  ...GATES.map((label) => ({ label, type: 'function' })),
+  { label: 'measure all', type: 'keyword', apply: 'measure all' },
+  { label: 'if m[0] == 1: x 1', type: 'snippet', apply: 'if m[0] == 1: x 1' },
+  { label: 'gate Bell(a, b):', type: 'snippet', apply: 'gate Bell(a, b):\n  h a\n  cx a b\nend' },
+];
 
-  const handleKeyDown = useCallback((e) => {
-    const ta = textareaRef.current;
-    if (!ta) return;
+const dslLanguage = StreamLanguage.define({
+  name: 'quantum-assembly',
+  token(stream) {
+    if (stream.eatSpace()) return null;
+    if (stream.match(/#.*/)) return 'comment';
+    if (stream.match(/\/\/.*/)) return 'comment';
+    if (stream.match(/"(?:[^"\\]|\\.)*"/)) return 'string';
+    if (stream.match(/-?(?:\d+(?:\.\d+)?|(?:\d+\*)?pi(?:\/\d+)?)/i)) return 'number';
+    if (stream.match(/\b(?:qubits|qreg|measure|m|barrier|gate|end|if)\b/i)) return 'keyword';
+    if (stream.match(/\b(?:h|x|y|z|s|t|sdg|tdg|id|cx|cnot|cz|cs|ct|swap|ccx|toffoli|cswap|rx|ry|rz|u1)\b/i))
+      return 'atom';
+    if (stream.match(/\bm\[\d+\]/i)) return 'variableName';
+    stream.next();
+    return null;
+  },
+});
 
-    // Tab: insert 2 spaces instead of shifting focus
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      const { selectionStart: start, selectionEnd: end } = ta;
-      const newCode = code.slice(0, start) + '  ' + code.slice(end);
-      onChange(newCode);
-      requestAnimationFrame(() => {
-        ta.selectionStart = ta.selectionEnd = start + 2;
-      });
-    }
+const dslLanguageData = dslLanguage.data.of({
+  commentTokens: { line: '#' },
+});
 
-    // Escape: clear focus from editor
-    else if (e.key === 'Escape') {
-      ta.blur();
-    }
+const dslHighlight = HighlightStyle.define([
+  { tag: tag.keyword, color: T.semantic.warning, fontWeight: '700' },
+  { tag: tag.atom, color: T.accent.light, fontWeight: '700' },
+  { tag: tag.number, color: T.accent.soft },
+  { tag: tag.comment, color: T.text.dim, fontStyle: 'italic' },
+  { tag: tag.string, color: T.semantic.successLight },
+  { tag: tag.variableName, color: T.accent.activeNum },
+]);
 
-    // Ctrl+/: toggle # comment on the current line
-    else if (e.ctrlKey && e.key === '/') {
-      e.preventDefault();
-      const { selectionStart: pos } = ta;
-      const lines = code.split('\n');
-      // Find which line the cursor is on
-      let lineStart = 0;
-      let lineIdx = lines.length - 1;
-      for (let i = 0; i < lines.length; i++) {
-        const lineEnd = lineStart + lines[i].length;
-        if (pos <= lineEnd || i === lines.length - 1) {
-          lineIdx = i;
-          break;
-        }
-        lineStart = lineEnd + 1; // +1 for the '\n'
-      }
-      const line = lines[lineIdx];
-      const trimmed = line.trimStart();
-      const indent = line.length - trimmed.length;
-      let newLine;
-      if (trimmed.startsWith('# ')) {
-        newLine = line.slice(0, indent) + trimmed.slice(2);
-      } else if (trimmed.startsWith('#')) {
-        newLine = line.slice(0, indent) + trimmed.slice(1);
-      } else {
-        newLine = line.slice(0, indent) + '# ' + trimmed;
-      }
-      const delta = newLine.length - line.length;
-      lines[lineIdx] = newLine;
-      onChange(lines.join('\n'));
-      requestAnimationFrame(() => {
-        ta.selectionStart = ta.selectionEnd = Math.max(lineStart, pos + delta);
-      });
-    }
+const editorTheme = EditorView.theme({
+  '&': {
+    height: '100%',
+    backgroundColor: T.bg.deep,
+    color: T.text.primary,
+    fontSize: `${T.font.size.base}px`,
+  },
+  '.cm-scroller': {
+    fontFamily: T.font.mono,
+    lineHeight: T.font.lineHeight.code,
+  },
+  '.cm-content': {
+    caretColor: T.accent.soft,
+    padding: '4px 0',
+  },
+  '.cm-gutters': {
+    backgroundColor: T.bg.deep,
+    color: T.text.disabled,
+    borderRight: `1px solid ${T.border.subtle}`,
+  },
+  '.cm-activeLineGutter': {
+    color: T.accent.activeNum,
+    backgroundColor: T.bg.activeLine,
+  },
+  '.cm-activeLine': {
+    backgroundColor: 'rgba(30, 58, 95, 0.45)',
+  },
+  '.cm-activeStepLine': {
+    backgroundColor: `${T.bg.activeLine} !important`,
+    borderLeft: `3px solid ${T.semantic.info}`,
+  },
+  '.cm-errorLine': {
+    backgroundColor: `${T.bg.errorLine} !important`,
+    borderLeft: `3px solid ${T.semantic.error}`,
+  },
+  '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': {
+    backgroundColor: `${T.accent.selection} !important`,
+  },
+  '.cm-tooltip': {
+    backgroundColor: T.bg.panel,
+    border: `1px solid ${T.border.muted}`,
+    color: T.text.primary,
+  },
+  '.cm-diagnostic': {
+    fontFamily: T.font.mono,
+  },
+});
 
-    // Prevent native textarea undo/redo - App's global handler owns history
-    else if (e.ctrlKey && !e.shiftKey && e.key === 'z') {
-      e.preventDefault();
-      // don't stopPropagation - let the window handler call handleUndo
-    }
-    else if (e.ctrlKey && ((!e.shiftKey && e.key === 'y') || (e.shiftKey && e.key === 'Z'))) {
-      e.preventDefault();
-      // don't stopPropagation - let the window handler call handleRedo
-    }
-  }, [code, onChange]);
+function dslCompletions(context) {
+  const word = context.matchBefore(/[\w.[\]=:]*/);
+  if (!word || (word.from === word.to && !context.explicit)) return null;
+  return {
+    from: word.from,
+    options: COMPLETIONS,
+  };
+}
 
-  const highlightedLines = useMemo(() => {
-    return code.split("\n").map((line, i) => {
-      const trimmed = line.trim();
-      const isActive = activeLine === i;
-      const isError = errorLines?.includes(i);
-
-      let content;
-      if (trimmed.startsWith("#") || trimmed.startsWith("//")) {
-        content = <span style={{ color: T.text.dim, fontStyle: "italic" }}>{line}</span>;
-      } else {
-        const match = line.match(/^(\s*)([\w/]+)(.*)$/);
-        if (match) {
-          const [, ws, first, rest] = match;
-          let color = T.text.primary;
-          if (SYNTAX_PATTERNS.keywords.test(first)) color = T.semantic.warning;
-          else if (SYNTAX_PATTERNS.gates.test(first)) color = T.accent.light;
-          content = (
-            <>
-              {ws}
-              <span style={{ color, fontWeight: "bold" }}>{first}</span>
-              <span style={{ color: T.text.muted }}>{rest}</span>
-            </>
-          );
-        } else {
-          content = <span style={{ color: T.text.primary }}>{line || " "}</span>;
-        }
-      }
-
-      return (
-        <div
-          key={i}
-          style={{
-            display: "flex",
-            height: 21,
-            lineHeight: "21px",
-            background: isActive
-              ? T.bg.activeLine
-              : isError
-              ? T.bg.errorLine
-              : "transparent",
-            borderLeft: isActive
-              ? `3px solid ${T.semantic.info}`
-              : isError
-              ? `3px solid ${T.semantic.error}`
-              : "3px solid transparent",
-            transition: "background 0.15s",
-          }}
-        >
-          <span
-            style={{
-              width: 36,
-              textAlign: "right",
-              paddingRight: 8,
-              color: isActive ? T.accent.activeNum : T.text.disabled,
-              userSelect: "none",
-              flexShrink: 0,
-              fontSize: T.font.size.md,
-            }}
-          >
-            {i + 1}
-          </span>
-          <span style={{ whiteSpace: "pre" }}>{content}</span>
-        </div>
-      );
+function diagnosticsExtension(errors) {
+  return linter((view) => {
+    return errors.map((error) => {
+      const lineNumber = Math.max(1, Math.min(view.state.doc.lines, error.line + 1));
+      const line = view.state.doc.line(lineNumber);
+      return {
+        from: line.from,
+        to: line.to,
+        severity: 'error',
+        message: error.msg,
+      };
     });
-  }, [code, activeLine, errorLines]);
+  });
+}
+
+function lineDecorations(activeLine, errorLines) {
+  return EditorView.decorations.compute([], (state) => {
+    const builder = new RangeSetBuilder();
+    const errorSet = new Set(errorLines ?? []);
+
+    for (const lineIndex of errorSet) {
+      if (lineIndex < 0 || lineIndex >= state.doc.lines) continue;
+      const line = state.doc.line(lineIndex + 1);
+      builder.add(line.from, line.from, Decoration.line({ class: 'cm-errorLine' }));
+    }
+
+    if (activeLine !== null && activeLine !== undefined && activeLine >= 0 && activeLine < state.doc.lines) {
+      const line = state.doc.line(activeLine + 1);
+      builder.add(line.from, line.from, Decoration.line({ class: 'cm-activeStepLine' }));
+    }
+
+    return builder.finish();
+  });
+}
+
+const gateFoldService = foldService.of((state, lineStart) => {
+  const startLine = state.doc.lineAt(lineStart);
+  if (!/^\s*gate\b.*:\s*$/i.test(startLine.text)) return null;
+
+  for (let lineNo = startLine.number + 1; lineNo <= state.doc.lines; lineNo++) {
+    const line = state.doc.line(lineNo);
+    if (/^\s*end\s*$/i.test(line.text)) {
+      return { from: startLine.to, to: line.from };
+    }
+  }
+
+  return null;
+});
+
+export default function CodeEditor({ code, onChange, activeLine, errorLines, errors = [] }) {
+  const extensions = useMemo(
+    () => [
+      dslLanguage,
+      dslLanguageData,
+      syntaxHighlighting(dslHighlight),
+      editorTheme,
+      autocompletion({ override: [dslCompletions] }),
+      diagnosticsExtension(errors),
+      lintGutter(),
+      lineDecorations(activeLine, errorLines),
+      gateFoldService,
+      keymap.of(searchKeymap),
+    ],
+    [activeLine, errorLines, errors]
+  );
 
   return (
-    <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
-      {/* Highlighted overlay */}
-      <div
-        ref={overlayRef}
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          overflow: "hidden",
-          padding: "4px 0",
-          fontSize: 13,
-          lineHeight: "21px",
-          pointerEvents: "none",
-          zIndex: 1,
-        }}
-      >
-        {highlightedLines}
-      </div>
-
-      {/* Actual textarea */}
-      <textarea
-        ref={textareaRef}
+    <div style={{ flex: 1, minHeight: 0 }}>
+      <CodeMirror
         value={code}
-        onChange={(e) => onChange(e.target.value)}
-        onScroll={handleScroll}
-        onKeyDown={handleKeyDown}
-        spellCheck={false}
-        autoComplete="off"
-        autoCorrect="off"
-        autoCapitalize="off"
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: "100%",
-          height: "100%",
-          padding: "4px 0 4px 44px",
-          fontSize: 13,
-          lineHeight: "21px",
-          fontFamily: "inherit",
-          background: "transparent",
-          color: "transparent",
-          caretColor: T.accent.soft,
-          border: "none",
-          outline: "none",
-          resize: "none",
-          zIndex: 2,
-          whiteSpace: "pre",
-          overflowWrap: "normal",
-          overflow: "auto",
-          tabSize: 2,
+        height="100%"
+        basicSetup={{
+          lineNumbers: true,
+          foldGutter: true,
+          highlightActiveLine: true,
+          highlightActiveLineGutter: true,
+          searchKeymap: true,
+          autocompletion: true,
+          bracketMatching: true,
+          closeBrackets: true,
         }}
+        extensions={extensions}
+        onChange={onChange}
+        theme="dark"
       />
     </div>
   );

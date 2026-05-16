@@ -5,12 +5,12 @@ const GATE_GROUPS = [
   {
     label: 'Single-qubit',
     gates: [
-      { name: 'H',   display: 'H',  needsAngle: false },
-      { name: 'X',   display: 'X',  needsAngle: false },
-      { name: 'Y',   display: 'Y',  needsAngle: false },
-      { name: 'Z',   display: 'Z',  needsAngle: false },
-      { name: 'S',   display: 'S',  needsAngle: false },
-      { name: 'T',   display: 'T',  needsAngle: false },
+      { name: 'H', display: 'H', needsAngle: false },
+      { name: 'X', display: 'X', needsAngle: false },
+      { name: 'Y', display: 'Y', needsAngle: false },
+      { name: 'Z', display: 'Z', needsAngle: false },
+      { name: 'S', display: 'S', needsAngle: false },
+      { name: 'T', display: 'T', needsAngle: false },
       { name: 'SDG', display: 'S†', needsAngle: false },
       { name: 'TDG', display: 'T†', needsAngle: false },
     ],
@@ -21,30 +21,29 @@ const GATE_GROUPS = [
       { name: 'RX', display: 'RX', needsAngle: true },
       { name: 'RY', display: 'RY', needsAngle: true },
       { name: 'RZ', display: 'RZ', needsAngle: true },
+      { name: 'U1', display: 'U1', needsAngle: true },
     ],
   },
   {
     label: 'Two-qubit',
     gates: [
       { name: 'CNOT', display: 'CNOT', needsAngle: false },
-      { name: 'CZ',   display: 'CZ',   needsAngle: false },
-      { name: 'CS',   display: 'CS',   needsAngle: false },
-      { name: 'CT',   display: 'CT',   needsAngle: false },
+      { name: 'CZ', display: 'CZ', needsAngle: false },
+      { name: 'CS', display: 'CS', needsAngle: false },
+      { name: 'CT', display: 'CT', needsAngle: false },
       { name: 'SWAP', display: 'SWAP', needsAngle: false },
     ],
   },
   {
     label: 'Three-qubit',
     gates: [
-      { name: 'CCX',   display: 'CCX',   needsAngle: false },
+      { name: 'CCX', display: 'CCX', needsAngle: false },
       { name: 'CSWAP', display: 'CSWAP', needsAngle: false },
     ],
   },
   {
     label: 'Measure',
-    gates: [
-      { name: 'MEASURE', display: 'M', needsAngle: false },
-    ],
+    gates: [{ name: 'MEASURE', display: 'M', needsAngle: false }],
   },
 ];
 
@@ -87,33 +86,37 @@ function GateChip({ gate, display, needsAngle, onGateDragStart }) {
 
 export default function GatePalette({ onGateDragStart }) {
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      gap: T.space[4],
-      padding: `${T.space[5]}px ${T.space[4]}px`,
-      background: T.bg.deep,
-      borderRight: `1px solid ${T.border.subtle}`,
-      overflowY: 'auto',
-      width: 68,
-      minWidth: 68,
-      flexShrink: 0,
-    }}>
-      {GATE_GROUPS.map(group => (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: T.space[4],
+        padding: `${T.space[5]}px ${T.space[4]}px`,
+        background: T.bg.deep,
+        borderRight: `1px solid ${T.border.subtle}`,
+        overflowY: 'auto',
+        width: 68,
+        minWidth: 68,
+        flexShrink: 0,
+      }}
+    >
+      {GATE_GROUPS.map((group) => (
         <div key={group.label} style={{ display: 'flex', flexDirection: 'column', gap: T.space[2] }}>
-          <div style={{
-            fontSize: T.font.size.xs,
-            color: T.text.dim,
-            textTransform: 'uppercase',
-            letterSpacing: 0.5,
-            marginBottom: T.space[1],
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}>
+          <div
+            style={{
+              fontSize: T.font.size.xs,
+              color: T.text.dim,
+              textTransform: 'uppercase',
+              letterSpacing: 0.5,
+              marginBottom: T.space[1],
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
             {group.label}
           </div>
-          {group.gates.map(g => (
+          {group.gates.map((g) => (
             <GateChip
               key={g.name}
               gate={g.name}

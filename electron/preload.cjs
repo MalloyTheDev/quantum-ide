@@ -11,6 +11,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   /** Open a native file dialog and return { filePath, content } or null if cancelled */
   openFile: () => ipcRenderer.invoke('dialog:openFile'),
 
+  /** Open a known path, used for native recent-file menu commands */
+  openPath: (filePath) => ipcRenderer.invoke('dialog:openPath', filePath),
+
   /** Write content to an already-known file path. Returns { success, filePath } */
   saveFile: (content, filePath) => ipcRenderer.invoke('dialog:saveFile', content, filePath),
 
@@ -25,4 +28,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   /** Show an open dialog and return the file content string, or null if cancelled */
   openFileDialog: (filters) => ipcRenderer.invoke('open-file', filters),
+
+  /** Send the main process the renderer's persisted recent-file list */
+  setRecentFiles: (files) => ipcRenderer.send('recent-files:update', files),
+
+  /** Subscribe to native menu commands. Returns an unsubscribe function. */
+  onMenuCommand: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('menu:command', listener);
+    return () => ipcRenderer.removeListener('menu:command', listener);
+  },
 });

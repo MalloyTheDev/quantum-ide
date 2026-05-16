@@ -9,7 +9,7 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { exportToQASM, importFromQASM } from '../src/engine/qasm.js';
+import { exportToQASM, importFromQASM, importFromQASMWithDiagnostics } from '../src/engine/qasm.js';
 import { parse } from '../src/engine/parser.js';
 
 function parseCode(code) {
@@ -78,6 +78,11 @@ describe('Standard gate round-trips', () => {
     assert.ok(dsl.includes('rx') && dsl.includes('0'));
   });
 
+  it('U1 phase gate round-trips', () => {
+    const dsl = roundTrip('u1 pi/4 0');
+    assert.ok(dsl.includes('u1 pi/4 0'), `DSL after round-trip: ${dsl}`);
+  });
+
   it('SWAP gate round-trips', () => {
     const dsl = roundTrip('swap 0 1');
     assert.ok(dsl.includes('swap 0 1'));
@@ -137,7 +142,7 @@ describe('QASM import gate definition reconstruction', () => {
 
     // Verify the DSL parses without errors
     const { errors } = parse(dsl);
-    assert.equal(errors.length, 0, `Parse errors: ${errors.map(e => e.msg).join(', ')}`);
+    assert.equal(errors.length, 0, `Parse errors: ${errors.map((e) => e.msg).join(', ')}`);
   });
 
   it('single-line gate definition is parsed correctly', () => {
@@ -154,7 +159,7 @@ describe('QASM import gate definition reconstruction', () => {
     assert.ok(dsl.includes('x q0'), `Gate body missing:\n${dsl}`);
     assert.ok(dsl.includes('flip 0'), `Gate call missing:\n${dsl}`);
     const { errors } = parse(dsl);
-    assert.equal(errors.length, 0, `Parse errors: ${errors.map(e => e.msg).join(', ')}`);
+    assert.equal(errors.length, 0, `Parse errors: ${errors.map((e) => e.msg).join(', ')}`);
   });
 
   it('gate with unsupported body operations is silently skipped', () => {
@@ -189,16 +194,29 @@ describe('QASM export structure', () => {
   });
 
   it('custom gate body is inlined (not emitted as gate definition)', () => {
-    const code = [
-      'gate myh(q0):',
-      '  h q0',
-      'end',
-      'myh 0',
-    ].join('\n');
+    const code = ['gate myh(q0):', '  h q0', 'end', 'myh 0'].join('\n');
     const { instructions, nQubits, customGates } = parseCode(code);
     const qasm = exportToQASM(instructions, nQubits, customGates);
     // Custom gates are inlined (body expanded), no "gate myh" definition in output
     assert.ok(!qasm.includes('gate myh'), `Should not emit gate definitions:\n${qasm}`);
     assert.ok(qasm.includes('h q[0]'), `Inlined body should contain h:\n${qasm}`);
+  });
+
+  it('conditional gates export as visible unsupported comments', () => {
+    const { instructions, nQubits, customGates } = parseCode('measure 0\nif m[0] == 1: x 0');
+    const qasm = exportToQASM(instructions, nQubits, customGates);
+    assert.ok(qasm.includes('unsupported conditional'), `Conditional limitation should be visible:\n${qasm}`);
+  });
+});
+
+describe('QASM import diagnostics', () => {
+  it('returns diagnostics for unsupported lines', () => {
+    const { code, diagnostics } = importFromQASMWithDiagnostics(
+      ['OPENQASM 2.0;', 'include "qelib1.inc";', 'qreg q[1];', 'opaque mystery q;'].join('\n')
+    );
+
+    assert.ok(code.includes('# unsupported: opaque mystery q'), `Unsupported line should be visible:\n${code}`);
+    assert.equal(diagnostics.length, 1);
+    assert.ok(diagnostics[0].msg.includes('Unsupported QASM line'));
   });
 });

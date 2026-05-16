@@ -1,6 +1,6 @@
 /**
  * Complex number arithmetic for quantum state simulation.
- * 
+ *
  * All complex numbers are represented as [real, imaginary] tuples.
  * This avoids object allocation overhead and keeps the hot path
  * (gate application loops) as fast as possible in JS.
@@ -60,7 +60,7 @@ export function cfmt([r, i], precision = 4) {
 
   if (ii === 0) return rr.toFixed(precision);
   if (rr === 0) return `${ii.toFixed(precision)}i`;
-  return `${rr.toFixed(precision)}${ii >= 0 ? "+" : ""}${ii.toFixed(precision)}i`;
+  return `${rr.toFixed(precision)}${ii >= 0 ? '+' : ''}${ii.toFixed(precision)}i`;
 }
 
 /**

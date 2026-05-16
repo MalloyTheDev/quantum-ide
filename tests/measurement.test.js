@@ -16,7 +16,9 @@ import { FIXED_GATES } from '../src/engine/gates.js';
 
 const EPS = 1e-10;
 
-function near(a, b) { return Math.abs(a - b) < EPS; }
+function near(a, b) {
+  return Math.abs(a - b) < EPS;
+}
 
 // ── Deterministic measurements ───────────────────────────────────────────────
 
@@ -93,7 +95,10 @@ describe('measureAll', () => {
   it('all-zero state always yields [0,0,0]', () => {
     for (let t = 0; t < 10; t++) {
       const { outcomes } = measureAll(createState(3), 3);
-      assert.deepEqual(outcomes.map(o => o.outcome), [0, 0, 0]);
+      assert.deepEqual(
+        outcomes.map((o) => o.outcome),
+        [0, 0, 0]
+      );
     }
   });
 
@@ -101,10 +106,10 @@ describe('measureAll', () => {
     // Prepare Bell state: H on q0, CNOT(q0,q1)
     let s = applySingleQubitGate(createState(2), FIXED_GATES.h, 0, 2);
     s = applyCNOT(s, 0, 1, 2);
-    const counts = { '00': 0, '11': 0, other: 0 };
+    const counts = { '00': 0, 11: 0, other: 0 };
     for (let t = 0; t < 40; t++) {
       const { outcomes } = measureAll(s, 2);
-      const bits = outcomes.map(o => o.outcome).join('');
+      const bits = outcomes.map((o) => o.outcome).join('');
       if (bits === '00') counts['00']++;
       else if (bits === '11') counts['11']++;
       else counts.other++;

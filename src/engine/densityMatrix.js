@@ -41,21 +41,24 @@ export function applyGateDM(rho, gate, qubit, nQubits) {
   const q = Array.isArray(qubit) ? qubit[0] : qubit;
 
   // Precompute conjugates for the right-multiply step
-  const g00 = gate[0][0], g01 = gate[0][1];
-  const g10 = gate[1][0], g11 = gate[1][1];
+  const g00 = gate[0][0],
+    g01 = gate[0][1];
+  const g10 = gate[1][0],
+    g11 = gate[1][1];
   const g00c = [g00[0], -g00[1]];
   const g01c = [g01[0], -g01[1]];
   const g10c = [g10[0], -g10[1]];
   const g11c = [g11[0], -g11[1]];
 
   // Step 1 - left multiply: temp = U · rho
-  const temp = rho.map(row => row.map(c => [c[0], c[1]]));
+  const temp = rho.map((row) => row.map((c) => [c[0], c[1]]));
   for (let i = 0; i < dim; i++) {
-    if ((i >> q) & 1) continue;          // process each pair once (i0 = i)
+    if ((i >> q) & 1) continue; // process each pair once (i0 = i)
     const i1 = i | (1 << q);
     for (let j = 0; j < dim; j++) {
-      const a = rho[i][j], b = rho[i1][j];
-      temp[i][j]  = cadd(cmul(g00, a), cmul(g01, b));
+      const a = rho[i][j],
+        b = rho[i1][j];
+      temp[i][j] = cadd(cmul(g00, a), cmul(g01, b));
       temp[i1][j] = cadd(cmul(g10, a), cmul(g11, b));
     }
   }
@@ -64,13 +67,14 @@ export function applyGateDM(rho, gate, qubit, nQubits) {
   // (U†)[k][j] = conj(U[j][k])
   // result[i][j0] = temp[i][j0]·conj(g00) + temp[i][j1]·conj(g01)
   // result[i][j1] = temp[i][j0]·conj(g10) + temp[i][j1]·conj(g11)
-  const result = temp.map(row => row.map(c => [c[0], c[1]]));
+  const result = temp.map((row) => row.map((c) => [c[0], c[1]]));
   for (let i = 0; i < dim; i++) {
     for (let j = 0; j < dim; j++) {
       if ((j >> q) & 1) continue;
       const j1 = j | (1 << q);
-      const a = temp[i][j], b = temp[i][j1];
-      result[i][j]  = cadd(cmul(g00c, a), cmul(g01c, b));
+      const a = temp[i][j],
+        b = temp[i][j1];
+      result[i][j] = cadd(cmul(g00c, a), cmul(g01c, b));
       result[i][j1] = cadd(cmul(g10c, a), cmul(g11c, b));
     }
   }
@@ -83,9 +87,7 @@ export function applyGateDM(rho, gate, qubit, nQubits) {
  * CNOT is Hermitian, so U† = U.
  */
 export function applyCNOT_DM(rho, control, target, nQubits) {
-  return _applyPermDM(rho, nQubits, i =>
-    ((i >> control) & 1) ? i ^ (1 << target) : i
-  );
+  return _applyPermDM(rho, nQubits, (i) => ((i >> control) & 1 ? i ^ (1 << target) : i));
 }
 
 /**
@@ -103,35 +105,39 @@ export function applySWAP_DM(rho, q1, q2, nQubits) {
  */
 export function applyControlledGate_DM(rho, gate, control, target, nQubits) {
   const dim = 1 << nQubits;
-  const g00 = gate[0][0], g01 = gate[0][1];
-  const g10 = gate[1][0], g11 = gate[1][1];
+  const g00 = gate[0][0],
+    g01 = gate[0][1];
+  const g10 = gate[1][0],
+    g11 = gate[1][1];
   const g00c = [g00[0], -g00[1]];
   const g01c = [g01[0], -g01[1]];
   const g10c = [g10[0], -g10[1]];
   const g11c = [g11[0], -g11[1]];
 
   // Left multiply - only act when control bit = 1
-  const temp = rho.map(row => row.map(c => [c[0], c[1]]));
+  const temp = rho.map((row) => row.map((c) => [c[0], c[1]]));
   for (let i = 0; i < dim; i++) {
-    if (!((i >> control) & 1)) continue;  // skip control=0 rows
-    if ((i >> target) & 1) continue;      // process each pair once
+    if (!((i >> control) & 1)) continue; // skip control=0 rows
+    if ((i >> target) & 1) continue; // process each pair once
     const i1 = i | (1 << target);
     for (let j = 0; j < dim; j++) {
-      const a = rho[i][j], b = rho[i1][j];
-      temp[i][j]  = cadd(cmul(g00, a), cmul(g01, b));
+      const a = rho[i][j],
+        b = rho[i1][j];
+      temp[i][j] = cadd(cmul(g00, a), cmul(g01, b));
       temp[i1][j] = cadd(cmul(g10, a), cmul(g11, b));
     }
   }
 
   // Right multiply - only act when control bit = 1
-  const result = temp.map(row => row.map(c => [c[0], c[1]]));
+  const result = temp.map((row) => row.map((c) => [c[0], c[1]]));
   for (let i = 0; i < dim; i++) {
     for (let j = 0; j < dim; j++) {
       if (!((j >> control) & 1)) continue;
       if ((j >> target) & 1) continue;
       const j1 = j | (1 << target);
-      const a = temp[i][j], b = temp[i][j1];
-      result[i][j]  = cadd(cmul(g00c, a), cmul(g01c, b));
+      const a = temp[i][j],
+        b = temp[i][j1];
+      result[i][j] = cadd(cmul(g00c, a), cmul(g01c, b));
       result[i][j1] = cadd(cmul(g10c, a), cmul(g11c, b));
     }
   }
@@ -143,18 +149,17 @@ export function applyControlledGate_DM(rho, gate, control, target, nQubits) {
  * Apply Toffoli (CCX) gate: flip target when c1 and c2 are both |1⟩.
  */
 export function applyToffoli_DM(rho, c1, c2, target, nQubits) {
-  return _applyPermDM(rho, nQubits, i =>
-    (((i >> c1) & 1) && ((i >> c2) & 1)) ? i ^ (1 << target) : i
-  );
+  return _applyPermDM(rho, nQubits, (i) => ((i >> c1) & 1 && (i >> c2) & 1 ? i ^ (1 << target) : i));
 }
 
 /**
  * Apply CSWAP (Fredkin) gate: swap t1 and t2 when control = |1⟩.
  */
 export function applyCSWAP_DM(rho, control, t1, t2, nQubits) {
-  return _applyPermDM(rho, nQubits, i => {
+  return _applyPermDM(rho, nQubits, (i) => {
     if (!((i >> control) & 1)) return i;
-    const b1 = (i >> t1) & 1, b2 = (i >> t2) & 1;
+    const b1 = (i >> t1) & 1,
+      b2 = (i >> t2) & 1;
     if (b1 === b2) return i;
     return i ^ (1 << t1) ^ (1 << t2);
   });
@@ -163,9 +168,7 @@ export function applyCSWAP_DM(rho, control, t1, t2, nQubits) {
 /** Helper: apply a permutation P to a density matrix as ρ → P ρ P† = P ρ P^T */
 function _applyPermDM(rho, nQubits, permFn) {
   const dim = 1 << nQubits;
-  const result = Array.from({ length: dim }, () =>
-    Array.from({ length: dim }, () => [0, 0])
-  );
+  const result = Array.from({ length: dim }, () => Array.from({ length: dim }, () => [0, 0]));
   for (let i = 0; i < dim; i++) {
     const pi = permFn(i);
     for (let j = 0; j < dim; j++) {
@@ -188,9 +191,7 @@ function _applyPermDM(rho, nQubits, permFn) {
  */
 export function applyKraus(rho, krausOps, targetQubit, nQubits) {
   const dim = 1 << nQubits;
-  const result = Array.from({ length: dim }, () =>
-    Array.from({ length: dim }, () => [0, 0])
-  );
+  const result = Array.from({ length: dim }, () => Array.from({ length: dim }, () => [0, 0]));
   for (const K of krausOps) {
     const contrib = applyGateDM(rho, K, targetQubit, nQubits);
     for (let i = 0; i < dim; i++) {
@@ -210,10 +211,46 @@ export function depolarizingChannel(p) {
   const s0 = Math.sqrt(1 - p);
   const s1 = Math.sqrt(p / 3);
   return [
-    [[[s0, 0], [0, 0]], [[0, 0], [s0, 0]]],          // √(1-p)·I
-    [[[0, 0], [s1, 0]], [[s1, 0], [0, 0]]],           // √(p/3)·X
-    [[[0, 0], [0, -s1]], [[0, s1], [0, 0]]],          // √(p/3)·Y
-    [[[s1, 0], [0, 0]], [[0, 0], [-s1, 0]]],          // √(p/3)·Z
+    [
+      [
+        [s0, 0],
+        [0, 0],
+      ],
+      [
+        [0, 0],
+        [s0, 0],
+      ],
+    ], // √(1-p)·I
+    [
+      [
+        [0, 0],
+        [s1, 0],
+      ],
+      [
+        [s1, 0],
+        [0, 0],
+      ],
+    ], // √(p/3)·X
+    [
+      [
+        [0, 0],
+        [0, -s1],
+      ],
+      [
+        [0, s1],
+        [0, 0],
+      ],
+    ], // √(p/3)·Y
+    [
+      [
+        [s1, 0],
+        [0, 0],
+      ],
+      [
+        [0, 0],
+        [-s1, 0],
+      ],
+    ], // √(p/3)·Z
   ];
 }
 
@@ -225,8 +262,26 @@ export function amplitudeDampingChannel(gamma) {
   const s = Math.sqrt(gamma);
   const t = Math.sqrt(1 - gamma);
   return [
-    [[[1, 0], [0, 0]], [[0, 0], [t, 0]]],            // K0
-    [[[0, 0], [s, 0]], [[0, 0], [0, 0]]],             // K1
+    [
+      [
+        [1, 0],
+        [0, 0],
+      ],
+      [
+        [0, 0],
+        [t, 0],
+      ],
+    ], // K0
+    [
+      [
+        [0, 0],
+        [s, 0],
+      ],
+      [
+        [0, 0],
+        [0, 0],
+      ],
+    ], // K1
   ];
 }
 
@@ -238,8 +293,26 @@ export function phaseFlipChannel(p) {
   const s0 = Math.sqrt(1 - p);
   const s1 = Math.sqrt(p);
   return [
-    [[[s0, 0], [0, 0]], [[0, 0], [s0, 0]]],          // √(1-p)·I
-    [[[s1, 0], [0, 0]], [[0, 0], [-s1, 0]]],          // √p·Z
+    [
+      [
+        [s0, 0],
+        [0, 0],
+      ],
+      [
+        [0, 0],
+        [s0, 0],
+      ],
+    ], // √(1-p)·I
+    [
+      [
+        [s1, 0],
+        [0, 0],
+      ],
+      [
+        [0, 0],
+        [-s1, 0],
+      ],
+    ], // √p·Z
   ];
 }
 
@@ -268,7 +341,7 @@ export function measureDM(rho, qubitIndex, nQubits) {
   // collapsed1: keep rows/cols where bit = 1, zero the rest
   const collapsed0 = Array.from({ length: dim }, (_, i) =>
     Array.from({ length: dim }, (_, j) => {
-      if (((i >> qubitIndex) & 1) || ((j >> qubitIndex) & 1)) return [0, 0];
+      if ((i >> qubitIndex) & 1 || (j >> qubitIndex) & 1) return [0, 0];
       return prob0 > 1e-15 ? cscale(1 / prob0, rho[i][j]) : [0, 0];
     })
   );
@@ -295,22 +368,25 @@ export function measureDM(rho, qubitIndex, nQubits) {
  */
 export function getBlochVectorDM(rho, qubitIndex, nQubits) {
   const halfDim = 1 << (nQubits - 1);
-  let rho00 = 0, rho11 = 0, re10 = 0, im10 = 0;
+  let rho00 = 0,
+    rho11 = 0,
+    re10 = 0,
+    im10 = 0;
 
   for (let m = 0; m < halfDim; m++) {
     const m0 = _insertBit(m, qubitIndex, 0);
     const m1 = _insertBit(m, qubitIndex, 1);
     rho00 += rho[m0][m0][0];
     rho11 += rho[m1][m1][0];
-    re10  += rho[m1][m0][0];
-    im10  += rho[m1][m0][1];
+    re10 += rho[m1][m0][0];
+    im10 += rho[m1][m0][1];
   }
 
   const x = 2 * re10;
   const y = 2 * im10;
   const z = rho00 - rho11;
   const theta = Math.acos(Math.max(-1, Math.min(1, z)));
-  const phi   = Math.atan2(y, x);
+  const phi = Math.atan2(y, x);
   return { x, y, z, theta, phi };
 }
 

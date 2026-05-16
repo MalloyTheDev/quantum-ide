@@ -4,8 +4,8 @@
  */
 
 const EXAMPLES = {
-  "Bell State": {
-    description: "Creates a maximally entangled EPR pair: (|00⟩ + |11⟩)/√2",
+  'Bell State': {
+    description: 'Creates a maximally entangled EPR pair: (|00⟩ + |11⟩)/√2',
     code: `# Bell State (EPR Pair)
 # Creates maximally entangled |Φ+⟩ state
 qubits 2
@@ -14,8 +14,8 @@ cx 0 1
 measure all`,
   },
 
-  "GHZ State": {
-    description: "3-qubit Greenberger-Horne-Zeilinger state",
+  'GHZ State': {
+    description: '3-qubit Greenberger-Horne-Zeilinger state',
     code: `# GHZ State (3-qubit entanglement)
 # Produces (|000⟩ + |111⟩) / √2
 qubits 3
@@ -25,8 +25,8 @@ cx 0 2
 measure all`,
   },
 
-  "Superposition": {
-    description: "Equal superposition of all basis states",
+  Superposition: {
+    description: 'Equal superposition of all basis states',
     code: `# Equal superposition of all states
 # Each basis state has probability 1/8
 qubits 3
@@ -35,7 +35,7 @@ h 1
 h 2`,
   },
 
-  "Grover (2-qubit)": {
+  'Grover (2-qubit)': {
     description: "Grover's search algorithm finding |11⟩",
     code: `# Grover's search - oracle marks |11⟩
 qubits 2
@@ -61,8 +61,8 @@ h 1
 measure all`,
   },
 
-  "Quantum Teleportation": {
-    description: "Teleport a quantum state from q0 to q2 via entanglement",
+  'Quantum Teleportation': {
+    description: 'Teleport a quantum state from q0 to q2 via entanglement',
     code: `# Quantum Teleportation Protocol
 # Teleports q0's state to q2
 qubits 3
@@ -77,16 +77,14 @@ cx 0 1
 h 0
 measure 0
 measure 1
-# NOTE: Classical feed-forward is not yet supported in this IDE.
-# In a full implementation, the corrections below are applied to q2
-# conditioned on the measurement outcomes above:
-#   if measure 1 == 1: x 2
-#   if measure 0 == 1: z 2
-# Without these corrections the circuit is illustrative only.`,
+# Classical feed-forward corrections
+if m[1] == 1: x 2
+if m[0] == 1: z 2
+# q2 now holds the teleported state.`,
   },
 
-  "Phase Kickback": {
-    description: "Demonstrates phase kickback - key to many quantum algorithms",
+  'Phase Kickback': {
+    description: 'Demonstrates phase kickback - key to many quantum algorithms',
     code: `# Phase Kickback
 # The phase from the target kicks back to the control
 qubits 2
@@ -98,8 +96,8 @@ h 0
 measure 0`,
   },
 
-  "Swap Test": {
-    description: "Tests equality of two quantum states",
+  'Swap Test': {
+    description: 'Tests equality of two quantum states',
     code: `# Swap Test
 # Measures overlap between q1 and q2
 qubits 3
@@ -113,8 +111,8 @@ h 0
 measure 0`,
   },
 
-  "Deutsch-Jozsa": {
-    description: "Determines if a function is constant or balanced in one query",
+  'Deutsch-Jozsa': {
+    description: 'Determines if a function is constant or balanced in one query',
     code: `# Deutsch-Jozsa Algorithm (2-qubit)
 # Determines f is balanced (oracle: CNOT)
 qubits 2
@@ -131,8 +129,8 @@ h 0
 measure 0`,
   },
 
-  "Quantum Fourier Transform": {
-    description: "2-qubit QFT circuit",
+  'Quantum Fourier Transform': {
+    description: '2-qubit QFT circuit',
     code: `# Quantum Fourier Transform (2-qubit)
 qubits 2
 # Start with a test state: |10>
@@ -148,8 +146,8 @@ swap 0 1
 h 1`,
   },
 
-  "Entanglement Swapping": {
-    description: "Create entanglement between qubits that never interact directly",
+  'Entanglement Swapping': {
+    description: 'Create entanglement between qubits that never interact directly',
     code: `# Entanglement Swapping
 # q0-q1 entangled, q2-q3 entangled
 # After Bell measurement on q1,q2: q0,q3 become entangled
@@ -166,8 +164,8 @@ measure 1
 measure 2`,
   },
 
-  "Toffoli (AND Gate)": {
-    description: "Toffoli (CCX): q2 flips only when both q0=1 and q1=1 - quantum AND",
+  'Toffoli (AND Gate)': {
+    description: 'Toffoli (CCX): q2 flips only when both q0=1 and q1=1 - quantum AND',
     code: `# Toffoli Gate - Quantum AND
 # q2 (ancilla, starts |0⟩) flips iff q0=1 AND q1=1
 qubits 3
@@ -180,8 +178,8 @@ ccx 0 1 2
 measure all`,
   },
 
-  "Bell State - Statistics": {
-    description: "Bell state with measurement statistics - set Shots to 1000 and Run",
+  'Bell State - Statistics': {
+    description: 'Bell state with measurement statistics - set Shots to 1000 and Run',
     code: `# Bell State - Measurement Statistics
 # ★  Set Shots to 1000 (or any N) and click Run to see the histogram!
 #
@@ -194,8 +192,8 @@ cx 0 1     # Entangle q1 with q0  →  (|00⟩ + |11⟩)/√2
 measure all`,
   },
 
-  "Custom Gate": {
-    description: "Define a reusable Bell gate and apply it to two qubit pairs",
+  'Custom Gate': {
+    description: 'Define a reusable Bell gate and apply it to two qubit pairs',
     code: `# Custom Gate Definition Example
 # Define a 'Bell' gate that creates a Bell pair
 gate Bell(a, b):

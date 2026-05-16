@@ -2,6 +2,7 @@
   "name": "quantum-ide",
   "version": "1.0.0",
   "description": "Desktop quantum computing IDE with a custom assembly language, hand-rolled state-vector simulator, circuit diagram, and Bloch sphere visualization",
+  "author": "Brendan Bates",
   "license": "MIT",
   "private": false,
   "type": "module",
@@ -11,19 +12,95 @@
     "build": "vite build",
     "preview": "vite preview",
     "electron:dev": "concurrently -k -n VITE,ELECTRON -c cyan,magenta \"vite\" \"wait-on http://localhost:3000 && electron . --dev\"",
-    "test": "node --test tests/gates.test.js tests/measurement.test.js tests/multishot.test.js tests/noisy.test.js tests/qasm.test.js tests/custom_gates.test.js tests/parser.test.js"
+    "test": "node --test tests/gates.test.js tests/measurement.test.js tests/multishot.test.js tests/noisy.test.js tests/qasm.test.js tests/custom_gates.test.js tests/parser.test.js tests/conditionals.test.js tests/simulation_runner.test.js",
+    "test:ui": "vitest run",
+    "test:e2e": "playwright test",
+    "lint": "eslint .",
+    "format:check": "prettier --check .",
+    "package:dir": "npm run build && electron-builder --dir",
+    "package:win": "npm run build && electron-builder --win"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "^6.20.2",
+    "@codemirror/commands": "^6.10.3",
+    "@codemirror/language": "^6.12.3",
+    "@codemirror/lint": "^6.9.6",
+    "@codemirror/search": "^6.7.0",
+    "@codemirror/state": "^6.6.0",
+    "@codemirror/view": "^6.43.0",
+    "@lezer/highlight": "^1.2.3",
+    "@uiw/react-codemirror": "^4.25.9",
+    "cmdk": "^1.1.1",
+    "comlink": "^4.4.2",
+    "electron-log": "^5.4.4",
+    "idb-keyval": "^6.2.2",
+    "lucide-react": "^1.16.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "zustand": "^5.0.13"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@lezer/generator": "^1.8.0",
+    "@playwright/test": "^1.60.0",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/react": "^18.3.12",
     "@vitejs/plugin-react": "^4.3.4",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
-    "electron": "^41.2.1",
+    "electron": "^41.6.1",
+    "electron-builder": "^26.8.1",
+    "eslint": "^10.4.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.6.0",
+    "jsdom": "^29.1.1",
+    "playwright": "^1.60.0",
+    "prettier": "^3.8.3",
     "vite": "^6.0.0",
-    "wait-on": "^9.0.5"
+    "vitest": "^4.1.6",
+    "wait-on": "^9.0.10"
+  },
+  "build": {
+    "appId": "com.malloythedev.quantumide",
+    "productName": "Quantum IDE",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json",
+      "LICENSE",
+      "README.md"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "dir"
+      ],
+      "artifactName": "Quantum-IDE-${version}-${arch}.${ext}",
+      "signAndEditExecutable": false,
+      "fileAssociations": [
+        {
+          "ext": "qs",
+          "name": "Quantum Assembly Program",
+          "description": "Quantum IDE assembly program"
+        },
+        {
+          "ext": "qasm",
+          "name": "OpenQASM Program",
+          "description": "OpenQASM quantum circuit"
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
   }
 }

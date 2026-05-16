@@ -2,39 +2,43 @@ import { memo } from 'react';
 import { T } from '../styles/tokens.js';
 
 const MODELS = [
-  { value: 'depolarizing',      label: 'Depolarizing' },
+  { value: 'depolarizing', label: 'Depolarizing' },
   { value: 'amplitude_damping', label: 'Amplitude Damping' },
-  { value: 'phase_flip',        label: 'Phase Flip' },
+  { value: 'phase_flip', label: 'Phase Flip' },
 ];
 
 function NoiseControls({ noiseConfig, onChange, shots }) {
   const locked = shots !== 1;
 
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: T.space[5],
-      padding: `3px ${T.space[5]}px`,
-      borderBottom: `1px solid ${T.border.subtle}`,
-      background: T.bg.deep,
-      fontSize: T.font.size.sm,
-      color: T.text.muted,
-      flexShrink: 0,
-    }}>
-      <label style={{
+    <div
+      style={{
         display: 'flex',
         alignItems: 'center',
-        gap: T.space[2],
-        cursor: locked ? 'not-allowed' : 'pointer',
-        opacity: locked ? 0.5 : 1,
-        userSelect: 'none',
-      }}>
+        gap: T.space[5],
+        padding: `3px ${T.space[5]}px`,
+        borderBottom: `1px solid ${T.border.subtle}`,
+        background: T.bg.deep,
+        fontSize: T.font.size.sm,
+        color: T.text.muted,
+        flexShrink: 0,
+      }}
+    >
+      <label
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: T.space[2],
+          cursor: locked ? 'not-allowed' : 'pointer',
+          opacity: locked ? 0.5 : 1,
+          userSelect: 'none',
+        }}
+      >
         <input
           type="checkbox"
           checked={noiseConfig.enabled && !locked}
           disabled={locked}
-          onChange={e => onChange({ ...noiseConfig, enabled: e.target.checked })}
+          onChange={(e) => onChange({ ...noiseConfig, enabled: e.target.checked })}
           style={{ accentColor: T.accent.primary, cursor: 'inherit' }}
         />
         <span>Noisy Simulation</span>
@@ -44,7 +48,7 @@ function NoiseControls({ noiseConfig, onChange, shots }) {
         <>
           <select
             value={noiseConfig.model}
-            onChange={e => onChange({ ...noiseConfig, model: e.target.value })}
+            onChange={(e) => onChange({ ...noiseConfig, model: e.target.value })}
             style={{
               background: T.bg.panel,
               color: T.text.secondary,
@@ -56,8 +60,10 @@ function NoiseControls({ noiseConfig, onChange, shots }) {
               outline: 'none',
             }}
           >
-            {MODELS.map(m => (
-              <option key={m.value} value={m.value}>{m.label}</option>
+            {MODELS.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
             ))}
           </select>
 
@@ -69,7 +75,7 @@ function NoiseControls({ noiseConfig, onChange, shots }) {
               max={0.1}
               step={0.001}
               value={noiseConfig.strength}
-              onChange={e => onChange({ ...noiseConfig, strength: parseFloat(e.target.value) })}
+              onChange={(e) => onChange({ ...noiseConfig, strength: parseFloat(e.target.value) })}
               style={{ width: 80, accentColor: T.accent.primary, cursor: 'pointer' }}
             />
             <span style={{ width: 36, textAlign: 'right', color: T.text.secondary, fontFamily: 'inherit' }}>
@@ -79,11 +85,7 @@ function NoiseControls({ noiseConfig, onChange, shots }) {
         </>
       )}
 
-      {locked && (
-        <span style={{ color: T.text.disabled, fontSize: T.font.size.xs }}>
-          (requires shots = 1)
-        </span>
-      )}
+      {locked && <span style={{ color: T.text.disabled, fontSize: T.font.size.xs }}>(requires shots = 1)</span>}
     </div>
   );
 }

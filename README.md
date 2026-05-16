@@ -5,14 +5,19 @@ A desktop quantum computing IDE built with Electron, React, and Vite. Write circ
 ## Features
 
 - **Custom DSL** -- line-based quantum assembly with gates, rotations, measurement, barriers, and user-defined reusable gates
+- **Classical feed-forward** -- condition gates on measurement memory with `if m[q] == value: ...`
 - **State-vector simulator** -- pure JavaScript, up to 16 qubits, all gate math written from the unitary definitions
+- **Worker-backed runs** -- full program execution and multi-shot sampling run off the UI thread
+- **CodeMirror editor** -- syntax highlighting, parser diagnostics, search, autocomplete, foldable gate blocks, and active-step highlighting
 - **Circuit diagram** -- SVG auto-generated from parsed instructions, highlights the active gate during step-through
 - **Step-through debugger** -- execute one instruction at a time and watch amplitudes update live
 - **Bloch sphere** -- per-qubit visualization computed by partial trace, shown as a 2D SVG projection
 - **Multi-shot histogram** -- run the circuit up to 10,000 times and plot outcome statistics
 - **OpenQASM 2.0 import/export** -- convert to and from the standard format used by IBM Quantum and others
+- **Command palette** -- `Ctrl+K` command launcher for file, run, and QASM actions
 - **Undo/redo** -- full editor history (100 states)
 - **File I/O** -- native save/open dialogs for `.qs` and `.qasm` files via Electron
+- **Windows desktop packaging** -- Electron Builder config with NSIS installer, unpacked build, and `.qs` / `.qasm` associations
 - **Extended gate set** -- CZ, CS, CT, CCX (Toffoli), CSWAP (Fredkin), plus all standard single-qubit and rotation gates
 - **Custom gate definitions** -- define named sub-circuits inline and call them like built-in gates
 - **Noise simulation** -- density matrix mode with depolarizing, amplitude damping, and phase flip channels
@@ -35,6 +40,23 @@ npm run electron:dev
 
 # Production build
 npm run build
+
+# Quality checks
+npm test
+npm run lint
+npm run test:ui
+npm run test:e2e
+
+# Windows packaging
+npm run package:dir
+npm run package:win
+```
+
+If Playwright cannot download its browser on Windows, point it at an installed Chrome:
+
+```powershell
+$env:PLAYWRIGHT_SYSTEM_CHROME='C:\Program Files\Google\Chrome\Application\chrome.exe'
+npm run test:e2e
 ```
 
 ## DSL Quick Reference
@@ -54,6 +76,7 @@ sdg 0  tdg 0       # S-dagger, T-dagger
 rx pi/2 0          # rotate about X axis
 ry pi/4 0
 rz pi 0
+u1 pi/4 0          # OpenQASM phase gate
 
 # Two-qubit gates
 cx 0 1             # CNOT (control, target)
@@ -67,6 +90,7 @@ cswap 0 1 2        # Fredkin (controlled SWAP)
 # Measurement
 measure 0          # measure qubit 0
 measure all        # measure all qubits
+if m[0] == 1: x 2  # condition on last measurement of qubit 0
 
 # Barrier (visual separator, no computation)
 barrier
@@ -89,16 +113,17 @@ Supported angle formats: `pi`, `pi/2`, `pi/4`, `pi/8`, `pi/3`, `pi/6`, `2*pi`, n
 
 ## Keyboard Shortcuts
 
-| Shortcut | Action |
-|---|---|
-| `Ctrl+Enter` | Run |
-| `Ctrl+Shift+Enter` | Step one gate |
-| `Ctrl+R` | Reset |
-| `Ctrl+Z` | Undo |
-| `Ctrl+Shift+Z` | Redo |
-| `Ctrl+S` | Save |
-| `Ctrl+Shift+S` | Save As |
-| `Ctrl+O` | Open file |
+| Shortcut           | Action          |
+| ------------------ | --------------- |
+| `Ctrl+Enter`       | Run             |
+| `Ctrl+Shift+Enter` | Step one gate   |
+| `Ctrl+R`           | Reset           |
+| `Ctrl+Z`           | Undo            |
+| `Ctrl+Shift+Z`     | Redo            |
+| `Ctrl+S`           | Save            |
+| `Ctrl+Shift+S`     | Save As         |
+| `Ctrl+O`           | Open file       |
+| `Ctrl+K`           | Command palette |
 
 ## Project Structure
 
@@ -111,6 +136,9 @@ src/
     simulator.js      # State-vector simulation, measurement, multi-shot, Bloch vectors
     densityMatrix.js  # Density matrix operations and Kraus noise channels
     qasm.js           # OpenQASM 2.0 import/export
+  services/           # Worker runner, persistence, runtime bridges
+  stores/             # Zustand workspace/simulation/preference stores
+  workers/            # Comlink simulation worker
   components/         # React UI components
   data/examples.js    # Built-in example programs
   styles/
@@ -128,23 +156,23 @@ The engine and UI are fully decoupled -- `src/engine/` has zero React imports an
 
 1. Define the 2x2 matrix in `src/engine/gates.js` and register it in `FIXED_GATES` (or `ROTATION_GATES` for parameterized gates)
 2. Add the name to the relevant set in `src/engine/parser.js`
-3. Add a `case` in `executeInstruction` in `simulator.js` if it needs custom dispatch logic
+3. Add a `case` in `executeInstruction` in `simulator.js` and the worker-safe runner if it needs custom dispatch logic
 4. Add a symbol renderer in `CircuitDiagram.jsx`
 
 ## Built-in Examples
 
-| Name | What it shows |
-|---|---|
-| Bell State | Maximally entangled EPR pair |
-| GHZ State | 3-qubit entanglement |
-| Superposition | H gate on all qubits |
-| Grover (2-qubit) | Search algorithm with oracle marking |11> |
-| Quantum Teleportation | Full 3-qubit teleportation protocol |
-| Deutsch-Jozsa | Constant vs. balanced function in one query |
-| Quantum Fourier Transform | 2-qubit QFT circuit |
-| Toffoli (AND Gate) | Reversible AND gate |
-| Custom Gate | Defining and calling a reusable Bell gate |
-| Bell State -- Statistics | 1000-shot run showing the 50/50 histogram |
+| Name                      | What it shows                               |
+| ------------------------- | ------------------------------------------- | --- |
+| Bell State                | Maximally entangled EPR pair                |
+| GHZ State                 | 3-qubit entanglement                        |
+| Superposition             | H gate on all qubits                        |
+| Grover (2-qubit)          | Search algorithm with oracle marking        | 11> |
+| Quantum Teleportation     | Full 3-qubit teleportation protocol         |
+| Deutsch-Jozsa             | Constant vs. balanced function in one query |
+| Quantum Fourier Transform | 2-qubit QFT circuit                         |
+| Toffoli (AND Gate)        | Reversible AND gate                         |
+| Custom Gate               | Defining and calling a reusable Bell gate   |
+| Bell State -- Statistics  | 1000-shot run showing the 50/50 histogram   |
 
 ## How the Simulator Works
 
