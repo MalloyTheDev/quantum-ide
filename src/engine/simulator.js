@@ -211,7 +211,7 @@ export function applyCSWAP(state, control, t1, t2, nQubits) {
  *
  * @returns {{ state: Array, outcome: number }}
  */
-export function measureQubit(state, qubit, nQubits) {
+export function measureQubit(state, qubit, nQubits, rng = Math.random) {
   const size = 1 << nQubits;
 
   // Compute P(outcome = 0)
@@ -223,7 +223,7 @@ export function measureQubit(state, qubit, nQubits) {
   }
 
   // Sample outcome
-  const outcome = Math.random() < prob0 ? 0 : 1;
+  const outcome = rng() < prob0 ? 0 : 1;
   const normFactor = Math.sqrt(outcome === 0 ? prob0 : 1 - prob0);
 
   // Collapse and renormalize
@@ -242,12 +242,12 @@ export function measureQubit(state, qubit, nQubits) {
  * Qubit ordering is little-endian: qubit 0 = LSB of the basis state index.
  * The returned outcomes array is indexed [q0, q1, ..., q_{n-1}].
  */
-export function measureAll(state, nQubits) {
+export function measureAll(state, nQubits, rng = Math.random) {
   let s = cloneState(state);
   const outcomes = [];
 
   for (let q = 0; q < nQubits; q++) {
-    const result = measureQubit(s, q, nQubits);
+    const result = measureQubit(s, q, nQubits, rng);
     s = result.state;
     outcomes.push({ qubit: q, outcome: result.outcome });
   }
@@ -274,7 +274,7 @@ function getLastMeasurement(measurements, qubit) {
  * @param {Object} customGates - Custom gate definitions from parser
  * @returns {{ state: Array, measurements: Array }}
  */
-export function executeInstruction(instruction, state, nQubits, measurements, customGates = {}) {
+export function executeInstruction(instruction, state, nQubits, measurements, customGates = {}, rng = Math.random) {
   let s = state;
   let m = [...measurements];
 
@@ -340,7 +340,7 @@ export function executeInstruction(instruction, state, nQubits, measurements, cu
             ...bodyInst,
             qubits: bodyInst.qubits?.map((localIdx) => instruction.qubits[localIdx]),
           };
-          const r = executeInstruction(remapped, s, nQubits, m, customGates);
+          const r = executeInstruction(remapped, s, nQubits, m, customGates, rng);
           s = r.state;
           m = r.measurements;
         }
@@ -349,14 +349,14 @@ export function executeInstruction(instruction, state, nQubits, measurements, cu
     }
 
     case 'measure': {
-      const result = measureQubit(s, instruction.qubits[0], nQubits);
+      const result = measureQubit(s, instruction.qubits[0], nQubits, rng);
       s = result.state;
       m.push({ qubit: instruction.qubits[0], outcome: result.outcome });
       break;
     }
 
     case 'measure_all': {
-      const result = measureAll(s, nQubits);
+      const result = measureAll(s, nQubits, rng);
       s = result.state;
       m.push(...result.outcomes);
       break;
@@ -369,7 +369,7 @@ export function executeInstruction(instruction, state, nQubits, measurements, cu
     case 'conditional': {
       const last = getLastMeasurement(m, instruction.condition.qubit);
       if (last?.outcome === instruction.condition.value) {
-        const result = executeInstruction(instruction.instruction, s, nQubits, m, customGates);
+        const result = executeInstruction(instruction.instruction, s, nQubits, m, customGates, rng);
         s = result.state;
         m = result.measurements;
       }
@@ -386,14 +386,15 @@ export function executeInstruction(instruction, state, nQubits, measurements, cu
 /**
  * Execute an entire program (array of instructions).
  */
-export function executeProgram(instructions, nQubits, customGates = {}) {
+export function executeProgram(instructions, nQubits, customGates = {}, options = {}) {
   let state = createState(nQubits);
   let measurements = [];
+  const rng = options.rng ?? Math.random;
 
   const gates = instructions.filter((i) => i.type !== 'qubits');
 
   for (const inst of gates) {
-    const result = executeInstruction(inst, state, nQubits, measurements, customGates);
+    const result = executeInstruction(inst, state, nQubits, measurements, customGates, rng);
     state = result.state;
     measurements = result.measurements;
   }
@@ -419,16 +420,17 @@ export function executeProgram(instructions, nQubits, customGates = {}) {
  * @param {Object} customGates  - Custom gate definitions from parser
  * @returns {Object} Frequency map: { "00": 512, "11": 488, ... } (always nQubits wide)
  */
-export function runMultiShot(instructions, nQubits, shots, customGates = {}) {
+export function runMultiShot(instructions, nQubits, shots, customGates = {}, options = {}) {
   const counts = {};
+  const rng = options.rng ?? Math.random;
 
   for (let i = 0; i < shots; i++) {
-    const result = executeProgram(instructions, nQubits, customGates);
+    const result = executeProgram(instructions, nQubits, customGates, { rng });
 
     let bitstring;
     if (result.measurements.length === 0) {
       // No explicit measurements - sample from the final state vector
-      const { outcomes } = measureAll(result.state, nQubits);
+      const { outcomes } = measureAll(result.state, nQubits, rng);
       bitstring = outcomes.map((m) => m.outcome).join('');
     } else {
       // Collect the last measured outcome per qubit
@@ -441,7 +443,7 @@ export function runMultiShot(instructions, nQubits, shots, customGates = {}) {
       let finalState = result.state;
       for (let q = 0; q < nQubits; q++) {
         if (lastMeasured[q] === undefined) {
-          const r = measureQubit(finalState, q, nQubits);
+          const r = measureQubit(finalState, q, nQubits, rng);
           lastMeasured[q] = r.outcome;
           finalState = r.state;
         }
@@ -561,9 +563,10 @@ export function getBlochVectors(stateVector, nQubits) {
  * @param {Object} customGates  - Custom gate definitions from parser
  * @returns {{ densityMatrix, blochVectors, measurements }}
  */
-export function executeNoisyProgram(instructions, nQubits, noiseConfig = {}, customGates = {}) {
+export function executeNoisyProgram(instructions, nQubits, noiseConfig = {}, customGates = {}, options = {}) {
   const { model = 'depolarizing', strength = 0.01 } = noiseConfig;
   const measurements = [];
+  const rng = options.rng ?? Math.random;
 
   function getKraus() {
     switch (model) {
@@ -653,7 +656,7 @@ export function executeNoisyProgram(instructions, nQubits, noiseConfig = {}, cus
       case 'measure': {
         const q = inst.qubits[0];
         const { prob0, collapsed0, collapsed1 } = measureDM(rho, q, nQubits);
-        const outcome = Math.random() < prob0 ? 0 : 1;
+        const outcome = rng() < prob0 ? 0 : 1;
         rho = outcome === 0 ? collapsed0 : collapsed1;
         meas.push({ qubit: q, outcome });
         break;
@@ -662,7 +665,7 @@ export function executeNoisyProgram(instructions, nQubits, noiseConfig = {}, cus
       case 'measure_all':
         for (let q = 0; q < nQubits; q++) {
           const { prob0, collapsed0, collapsed1 } = measureDM(rho, q, nQubits);
-          const outcome = Math.random() < prob0 ? 0 : 1;
+          const outcome = rng() < prob0 ? 0 : 1;
           rho = outcome === 0 ? collapsed0 : collapsed1;
           meas.push({ qubit: q, outcome });
         }

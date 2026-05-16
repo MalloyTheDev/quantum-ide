@@ -2,12 +2,14 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { parse, getGateInstructions, formatInstruction } from '../engine/parser.js';
 import { exportToQASM, importFromQASMWithDiagnostics } from '../engine/qasm.js';
 import { createState, executeInstruction } from '../engine/simulator.js';
+import { buildAnalysisSummary } from '../engine/analysis.js';
 import EXAMPLES from '../data/examples.js';
 import { loadSession, saveSession } from '../services/persistence.js';
 import { cancelSimulationWorker, runSimulationInWorker } from '../services/simulationWorkerClient.js';
 import { INITIAL_CODE, NEW_PROGRAM, useWorkspaceStore } from '../stores/workspaceStore.js';
 import { DEFAULT_NOISE_CONFIG, useSimulationStore } from '../stores/simulationStore.js';
 import { usePreferencesStore } from '../stores/preferencesStore.js';
+import seedrandom from 'seedrandom';
 
 function basename(filePath) {
   return filePath ? filePath.split(/[\\/]/).pop() : 'untitled.qs';
@@ -35,6 +37,7 @@ function runCompletePatch(result) {
       measurements: [],
       densityMatrix: null,
       blochVectorsDM: null,
+      analysisSummary: result.analysisSummary ?? null,
       stepIndex: null,
       errors: [],
       log: successLog,
@@ -49,6 +52,7 @@ function runCompletePatch(result) {
       state: null,
       densityMatrix: result.densityMatrix,
       blochVectorsDM: result.blochVectorsDM,
+      analysisSummary: result.analysisSummary ?? null,
       measurements: result.measurements,
       stepIndex: null,
       errors: [],
@@ -63,6 +67,7 @@ function runCompletePatch(result) {
     state: result.state,
     densityMatrix: null,
     blochVectorsDM: null,
+    analysisSummary: result.analysisSummary ?? null,
     measurements: result.measurements,
     stepIndex: null,
     errors: [],
@@ -77,6 +82,7 @@ export function useIdeController() {
 
   const stateRef = useRef(null);
   const measRef = useRef([]);
+  const stepRngRef = useRef(null);
   const debounceTimerRef = useRef(null);
   const runTokenRef = useRef(0);
 
@@ -91,6 +97,7 @@ export function useIdeController() {
   const resetSimulationRefs = useCallback(() => {
     stateRef.current = null;
     measRef.current = [];
+    stepRngRef.current = null;
   }, []);
 
   useEffect(() => {
@@ -107,6 +114,7 @@ export function useIdeController() {
       measurements: [],
       densityMatrix: null,
       blochVectorsDM: null,
+      analysisSummary: null,
       stepIndex: null,
     });
   }, [resetSimulationRefs, workspace.code]);
@@ -136,6 +144,9 @@ export function useIdeController() {
       if (Number.isFinite(session?.shots)) {
         useSimulationStore.getState().setShots(Math.max(1, Math.min(10000, session.shots)));
       }
+      if (typeof session?.seed === 'string') {
+        useSimulationStore.getState().setSeed(session.seed);
+      }
       if (session?.noiseConfig) {
         useSimulationStore.getState().setNoiseConfig({
           ...DEFAULT_NOISE_CONFIG,
@@ -144,6 +155,8 @@ export function useIdeController() {
       }
       usePreferencesStore.getState().hydratePreferences({
         showPalette: session?.showPalette,
+        showAnalysis: session?.showAnalysis,
+        analysisReference: session?.analysisReference,
         recentFiles: session?.recentFiles,
       });
     });
@@ -160,17 +173,23 @@ export function useIdeController() {
         currentFilePath: workspace.currentFilePath,
         isDirty: workspace.isDirty,
         shots: simulation.shots,
+        seed: simulation.seed,
         noiseConfig: simulation.noiseConfig,
         showPalette: preferences.showPalette,
+        showAnalysis: preferences.showAnalysis,
+        analysisReference: preferences.analysisReference,
         recentFiles: preferences.recentFiles,
       });
     }, 350);
     return () => clearTimeout(timer);
   }, [
+    preferences.analysisReference,
     preferences.hasHydrated,
     preferences.recentFiles,
+    preferences.showAnalysis,
     preferences.showPalette,
     simulation.noiseConfig,
+    simulation.seed,
     simulation.shots,
     workspace.code,
     workspace.currentFilePath,
@@ -222,7 +241,8 @@ export function useIdeController() {
   const handleRun = useCallback(async () => {
     flushHistory();
     const { code } = useWorkspaceStore.getState();
-    const { shots, noiseConfig } = useSimulationStore.getState();
+    const { shots, noiseConfig, seed } = useSimulationStore.getState();
+    const { analysisReference } = usePreferencesStore.getState();
     const token = runTokenRef.current + 1;
     runTokenRef.current = token;
     cancelSimulationWorker();
@@ -238,14 +258,23 @@ export function useIdeController() {
       );
 
     try {
-      const result = await runSimulationInWorker({ code, shots, noiseConfig }, (progress) => {
-        if (runTokenRef.current !== token) return;
-        useSimulationStore.getState().setRunProgress(progress);
-        const message = formatProgress(progress);
-        if (message) {
-          useSimulationStore.setState({ log: [message] });
+      const result = await runSimulationInWorker(
+        {
+          code,
+          shots,
+          noiseConfig,
+          seed: seed.trim(),
+          analysis: { enabled: true, reference: analysisReference },
+        },
+        (progress) => {
+          if (runTokenRef.current !== token) return;
+          useSimulationStore.getState().setRunProgress(progress);
+          const message = formatProgress(progress);
+          if (message) {
+            useSimulationStore.setState({ log: [message] });
+          }
         }
-      });
+      );
 
       if (runTokenRef.current !== token) return;
 
@@ -297,6 +326,8 @@ export function useIdeController() {
     if (nextIdx === 0) {
       state = createState(nQubits);
       measurements = [];
+      const { seed } = useSimulationStore.getState();
+      stepRngRef.current = seed.trim() ? seedrandom(seed.trim()) : Math.random;
       useSimulationStore.setState({
         nQubits,
         log: ['⏩ Stepping through program...'],
@@ -307,15 +338,29 @@ export function useIdeController() {
     }
 
     const inst = gates[nextIdx];
-    const result = executeInstruction(inst, state, nQubits, measurements, customGates);
+    const result = executeInstruction(
+      inst,
+      state,
+      nQubits,
+      measurements,
+      customGates,
+      stepRngRef.current ?? Math.random
+    );
     stateRef.current = result.state;
     measRef.current = result.measurements;
+    const { analysisReference } = usePreferencesStore.getState();
+    const analysisSummary = buildAnalysisSummary({
+      state: result.state,
+      nQubits,
+      reference: analysisReference,
+    });
 
     useSimulationStore.setState({
       errors: [],
       histogramData: null,
       densityMatrix: null,
       blochVectorsDM: null,
+      analysisSummary,
       gateInstructions: gates,
       state: result.state,
       measurements: result.measurements,
@@ -529,8 +574,16 @@ export function useIdeController() {
     useSimulationStore.getState().setShots(shots);
   }, []);
 
+  const setSeed = useCallback((seed) => {
+    useSimulationStore.getState().setSeed(seed);
+  }, []);
+
   const setNoiseConfig = useCallback((noiseConfig) => {
     useSimulationStore.getState().setNoiseConfig(noiseConfig);
+  }, []);
+
+  const setShowAnalysis = useCallback((showAnalysis) => {
+    usePreferencesStore.getState().setShowAnalysis(showAnalysis);
   }, []);
 
   const setShowBloch = useCallback((showBloch) => {
@@ -539,6 +592,20 @@ export function useIdeController() {
 
   const setShowRhoMatrix = useCallback((showRhoMatrix) => {
     usePreferencesStore.getState().setShowRhoMatrix(showRhoMatrix);
+  }, []);
+
+  const setAnalysisReference = useCallback((analysisReference) => {
+    usePreferencesStore.getState().setAnalysisReference(analysisReference);
+    const { state, densityMatrix, nQubits } = useSimulationStore.getState();
+    if (!nQubits || (!state && !densityMatrix)) return;
+    useSimulationStore.setState({
+      analysisSummary: buildAnalysisSummary({
+        state,
+        densityMatrix,
+        nQubits,
+        reference: analysisReference,
+      }),
+    });
   }, []);
 
   const setShowCommandPalette = useCallback((showCommandPalette) => {
@@ -663,7 +730,10 @@ export function useIdeController() {
       handleStep,
       handleUndo,
       setNoiseConfig,
+      setSeed,
       setShots,
+      setAnalysisReference,
+      setShowAnalysis,
       setShowBloch,
       setShowCommandPalette,
       setShowRhoMatrix,
@@ -689,7 +759,10 @@ export function useIdeController() {
       handleUndo,
       preferences,
       setNoiseConfig,
+      setSeed,
       setShots,
+      setAnalysisReference,
+      setShowAnalysis,
       setShowBloch,
       setShowCommandPalette,
       setShowRhoMatrix,

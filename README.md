@@ -13,6 +13,8 @@ A desktop quantum computing IDE built with Electron, React, and Vite. Write circ
 - **Step-through debugger** -- execute one instruction at a time and watch amplitudes update live
 - **Bloch sphere** -- per-qubit visualization computed by partial trace, shown as a 2D SVG projection
 - **Multi-shot histogram** -- run the circuit up to 10,000 times and plot outcome statistics
+- **Math Lab analysis** -- inspect reduced states, purity, entropy, fidelity, Bloch vectors, and Pauli expectations
+- **Seeded sampling** -- set an optional seed to reproduce measurement outcomes and multi-shot histograms
 - **OpenQASM 2.0 import/export** -- convert to and from the standard format used by IBM Quantum and others
 - **Command palette** -- `Ctrl+K` command launcher for file, run, and QASM actions
 - **Undo/redo** -- full editor history (100 states)
@@ -21,7 +23,7 @@ A desktop quantum computing IDE built with Electron, React, and Vite. Write circ
 - **Extended gate set** -- CZ, CS, CT, CCX (Toffoli), CSWAP (Fredkin), plus all standard single-qubit and rotation gates
 - **Custom gate definitions** -- define named sub-circuits inline and call them like built-in gates
 - **Noise simulation** -- density matrix mode with depolarizing, amplitude damping, and phase flip channels
-- **13 built-in examples** -- Bell state, GHZ, Grover search, teleportation, Deutsch-Jozsa, QFT, and more
+- **17 built-in examples** -- Bell state, GHZ, Grover search, teleportation, Deutsch-Jozsa, QFT, Math Lab circuits, and more
 
 ## Getting Started
 
@@ -110,6 +112,8 @@ Supported angle formats: `pi`, `pi/2`, `pi/4`, `pi/8`, `pi/3`, `pi/6`, `2*pi`, n
 
 - **State-vector mode:** accepts 1-16 qubits. This is best for noiseless circuits and multi-shot sampling.
 - **Noisy / density-matrix mode:** uses a `2^n × 2^n` matrix, so memory grows much faster. Keep noisy circuits to 12 qubits or fewer, and prefer smaller examples for interactive use.
+- **Seeded runs:** enter a seed in the toolbar to make measurement collapse and histogram sampling reproducible.
+- **Analysis view:** run a single-shot state-vector or noisy simulation, then open Analysis to inspect reduced states, purity, entropy, Pauli expectations, and fidelity against `|0...0>`, Bell, or GHZ references when applicable.
 
 ## Keyboard Shortcuts
 
@@ -132,6 +136,7 @@ src/
   engine/             # Pure JS quantum engine -- no React, no DOM dependencies
     complex.js        # Complex number arithmetic ([re, im] tuples)
     gates.js          # Gate matrix definitions
+    analysis.js       # Reduced states, entropy, fidelity, expectations
     parser.js         # DSL text -> instruction objects + custom gate registry
     simulator.js      # State-vector simulation, measurement, multi-shot, Bloch vectors
     densityMatrix.js  # Density matrix operations and Kraus noise channels
@@ -161,18 +166,22 @@ The engine and UI are fully decoupled -- `src/engine/` has zero React imports an
 
 ## Built-in Examples
 
-| Name                      | What it shows                               |
-| ------------------------- | ------------------------------------------- | --- |
-| Bell State                | Maximally entangled EPR pair                |
-| GHZ State                 | 3-qubit entanglement                        |
-| Superposition             | H gate on all qubits                        |
-| Grover (2-qubit)          | Search algorithm with oracle marking        | 11> |
-| Quantum Teleportation     | Full 3-qubit teleportation protocol         |
-| Deutsch-Jozsa             | Constant vs. balanced function in one query |
-| Quantum Fourier Transform | 2-qubit QFT circuit                         |
-| Toffoli (AND Gate)        | Reversible AND gate                         |
-| Custom Gate               | Defining and calling a reusable Bell gate   |
-| Bell State -- Statistics  | 1000-shot run showing the 50/50 histogram   |
+| Name                         | What it shows                                 |
+| ---------------------------- | --------------------------------------------- | ---- |
+| Bell State                   | Maximally entangled EPR pair                  |
+| GHZ State                    | 3-qubit entanglement                          |
+| Superposition                | H gate on all qubits                          |
+| Grover (2-qubit)             | Search algorithm with oracle marking `        | 11>` |
+| Quantum Teleportation        | Full 3-qubit teleportation protocol           |
+| Deutsch-Jozsa                | Constant vs. balanced function in one query   |
+| Quantum Fourier Transform    | 2-qubit QFT circuit                           |
+| Toffoli (AND Gate)           | Reversible AND gate                           |
+| Custom Gate                  | Defining and calling a reusable Bell gate     |
+| Bell State -- Statistics     | 1000-shot run showing the 50/50 histogram     |
+| Bell Entanglement Analysis   | Reduced-state purity, entropy, and fidelity   |
+| GHZ Reduced-State Analysis   | Mixed single-qubit reductions from GHZ        |
+| Mixed-State Noise Comparison | Purity and entropy change under density noise |
+| Seeded Histogram Demo        | Reproducible histograms with the seed field   |
 
 ## How the Simulator Works
 
@@ -181,6 +190,8 @@ The state vector is an array of `2^n` complex amplitudes stored as `[re, im]` pa
 Gate application iterates over amplitude pairs that differ only in the target qubit's bit position -- O(2^n) per gate instead of O(4^n) for full matrix multiplication. Measurement follows the Born rule and collapses the state in place.
 
 The density matrix engine handles noise simulation using Kraus operators. Gate application becomes `U * rho * U†`, and noise channels (depolarizing, amplitude damping, phase flip) are applied after each gate.
+
+The analysis engine stays outside the hot simulator loop. It converts final state vectors to density matrices only when needed, then computes partial traces, purity, entropy, pure-reference fidelity, and Pauli expectation values for the Analysis panel.
 
 ## License
 

@@ -14,6 +14,7 @@ import GatePalette from './components/GatePalette.jsx';
 import NoiseControls from './components/NoiseControls.jsx';
 import DensityMatrixView from './components/DensityMatrixView.jsx';
 import CommandPalette from './components/CommandPalette.jsx';
+import AnalysisPanel from './components/AnalysisPanel.jsx';
 
 function HeaderButton({ active, children, onClick }) {
   return (
@@ -73,7 +74,9 @@ export default function App() {
         currentFilePath={ide.currentFilePath}
         isDirty={ide.isDirty}
         shots={ide.shots}
+        seed={ide.seed}
         onShotsChange={ide.setShots}
+        onSeedChange={ide.setSeed}
         showPalette={ide.showPalette}
         onTogglePalette={ide.togglePalette}
       />
@@ -143,6 +146,17 @@ export default function App() {
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {ide.histogramData ? (
               <Histogram data={ide.histogramData} shots={ide.shots} nQubits={ide.nQubits} />
+            ) : ide.showAnalysis && ide.shots === 1 ? (
+              <AnalysisPanel
+                summary={ide.analysisSummary}
+                reference={ide.analysisReference}
+                onReferenceChange={ide.setAnalysisReference}
+                actions={
+                  <HeaderButton active onClick={() => ide.setShowAnalysis(false)}>
+                    Analysis
+                  </HeaderButton>
+                }
+              />
             ) : ide.showBloch && ide.shots === 1 ? (
               <BlochSphere
                 state={ide.state}
@@ -174,6 +188,17 @@ export default function App() {
                         <HeaderButton
                           active={false}
                           onClick={() => {
+                            ide.setShowAnalysis(true);
+                            ide.setShowBloch(false);
+                            ide.setShowRhoMatrix(false);
+                          }}
+                        >
+                          Analysis
+                        </HeaderButton>
+                        <HeaderButton
+                          active={false}
+                          onClick={() => {
+                            ide.setShowAnalysis(false);
                             ide.setShowBloch(true);
                             ide.setShowRhoMatrix(false);
                           }}
@@ -183,6 +208,7 @@ export default function App() {
                         <HeaderButton
                           active={false}
                           onClick={() => {
+                            ide.setShowAnalysis(false);
                             ide.setShowRhoMatrix(true);
                             ide.setShowBloch(false);
                           }}

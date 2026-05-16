@@ -12,7 +12,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "electron:dev": "concurrently -k -n VITE,ELECTRON -c cyan,magenta \"vite\" \"wait-on http://localhost:3000 && electron . --dev\"",
-    "test": "node --test tests/gates.test.js tests/measurement.test.js tests/multishot.test.js tests/noisy.test.js tests/qasm.test.js tests/custom_gates.test.js tests/parser.test.js tests/conditionals.test.js tests/simulation_runner.test.js",
+    "test": "node --test tests/gates.test.js tests/measurement.test.js tests/multishot.test.js tests/noisy.test.js tests/qasm.test.js tests/custom_gates.test.js tests/parser.test.js tests/conditionals.test.js tests/simulation_runner.test.js tests/analysis.test.js tests/seeded_rng.test.js",
     "test:ui": "vitest run",
     "test:e2e": "playwright test",
     "lint": "eslint .",
@@ -37,6 +37,7 @@
     "lucide-react": "^1.16.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "seedrandom": "^3.0.5",
     "zustand": "^5.0.13"
   },
   "devDependencies": {
@@ -54,6 +55,7 @@
     "eslint": "^10.4.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
+    "fast-check": "^4.8.0",
     "globals": "^17.6.0",
     "jsdom": "^29.1.1",
     "playwright": "^1.60.0",

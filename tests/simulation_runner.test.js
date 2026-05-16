@@ -23,6 +23,8 @@ describe('Simulation runner', () => {
 
     assert.equal(workerPath.ok, true);
     assert.equal(workerPath.mode, 'statevector');
+    assert.ok(workerPath.analysisSummary);
+    assert.ok(near(workerPath.analysisSummary.fidelity.value, 1));
     for (let i = 0; i < direct.state.length; i++) {
       assert.ok(near(workerPath.state[i][0], direct.state[i][0]));
       assert.ok(near(workerPath.state[i][1], direct.state[i][1]));
@@ -59,5 +61,6 @@ describe('Simulation runner', () => {
     assert.equal(result.ok, true);
     assert.equal(result.mode, 'noisy');
     assert.equal(result.densityMatrix.length, 2);
+    assert.ok(result.analysisSummary);
   });
 });

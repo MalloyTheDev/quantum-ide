@@ -12,6 +12,7 @@ const initialSimulationState = {
   measurements: [],
   gateInstructions: [],
   shots: 1,
+  seed: '',
   histogramData: null,
   stepIndex: null,
   errors: [],
@@ -19,6 +20,7 @@ const initialSimulationState = {
   noiseConfig: DEFAULT_NOISE_CONFIG,
   densityMatrix: null,
   blochVectorsDM: null,
+  analysisSummary: null,
   isRunning: false,
   runProgress: null,
 };
@@ -27,6 +29,7 @@ export const useSimulationStore = create((set, get) => ({
   ...initialSimulationState,
 
   setShots: (shots) => set({ shots }),
+  setSeed: (seed) => set({ seed }),
   setNoiseConfig: (noiseConfig) => set({ noiseConfig }),
   setErrors: (errors) => set({ errors }),
   setLog: (log) => set({ log }),
@@ -71,6 +74,7 @@ export const useSimulationStore = create((set, get) => ({
       log: [],
       densityMatrix: null,
       blochVectorsDM: null,
+      analysisSummary: null,
       isRunning: false,
       runProgress: null,
     }),

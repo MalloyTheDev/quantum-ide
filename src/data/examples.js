@@ -192,6 +192,47 @@ cx 0 1     # Entangle q1 with q0  →  (|00⟩ + |11⟩)/√2
 measure all`,
   },
 
+  'Bell Entanglement Analysis': {
+    description: 'Bell state without measurement, ideal for reduced-state entropy and fidelity',
+    code: `# Bell Entanglement Analysis
+# Run with Shots = 1, then open Analysis.
+# Each individual qubit is maximally mixed even though the pair is pure.
+qubits 2
+h 0
+cx 0 1`,
+  },
+
+  'GHZ Reduced-State Analysis': {
+    description: 'GHZ state without measurement for single-qubit entropy checks',
+    code: `# GHZ Reduced-State Analysis
+# Run with Shots = 1, then open Analysis.
+# Every single-qubit reduced state has entropy near 1.
+qubits 3
+h 0
+cx 0 1
+cx 0 2`,
+  },
+
+  'Mixed-State Noise Comparison': {
+    description: 'Use noisy mode to compare purity and entropy against an ideal superposition',
+    code: `# Mixed-State Noise Comparison
+# Enable noise, choose depolarizing, and run.
+# Analysis shows purity drop as the state becomes mixed.
+qubits 1
+h 0`,
+  },
+
+  'Seeded Histogram Demo': {
+    description: 'Set a Seed and Shots > 1 to get reproducible histogram samples',
+    code: `# Seeded Histogram Demo
+# Set Seed to "demo" and Shots to 1000.
+# Re-running with the same seed gives the same histogram.
+qubits 2
+h 0
+cx 0 1
+measure all`,
+  },
+
   'Custom Gate': {
     description: 'Define a reusable Bell gate and apply it to two qubit pairs',
     code: `# Custom Gate Definition Example

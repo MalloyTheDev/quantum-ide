@@ -90,7 +90,9 @@ function Toolbar({
   currentFilePath,
   isDirty,
   shots,
+  seed,
   onShotsChange,
+  onSeedChange,
   showPalette,
   onTogglePalette,
 }) {
@@ -229,6 +231,33 @@ function Toolbar({
           fontSize: T.font.size.sm,
           fontFamily: 'inherit',
           textAlign: 'center',
+          flexShrink: 0,
+          outline: 'none',
+          opacity: isRunning ? 0.65 : 1,
+        }}
+      />
+
+      <label htmlFor="seed-input" style={{ fontSize: T.font.size.sm, color: T.text.dim, flexShrink: 0 }}>
+        Seed:
+      </label>
+      <input
+        id="seed-input"
+        type="text"
+        value={seed}
+        onChange={(e) => onSeedChange(e.target.value)}
+        aria-label="Random seed"
+        title="Optional seed for reproducible measurements and histograms"
+        placeholder="random"
+        disabled={isRunning}
+        style={{
+          width: 92,
+          padding: '4px 6px',
+          borderRadius: T.radius.lg,
+          border: `1px solid ${seed ? T.accent.secondary : T.border.muted}`,
+          background: T.bg.panel,
+          color: seed ? T.accent.light : T.text.primary,
+          fontSize: T.font.size.sm,
+          fontFamily: 'inherit',
           flexShrink: 0,
           outline: 'none',
           opacity: isRunning ? 0.65 : 1,
